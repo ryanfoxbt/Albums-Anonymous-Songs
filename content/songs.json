@@ -1,0 +1,90 @@
+{
+  "artists": [
+    {
+      "name": "Gasoline Dion",
+      "slug": "gasoline-dion",
+      "bio": "Belts out power ballads about premium unleaded and the used car she'll never let go."
+    },
+    {
+      "name": "Reggaenomics",
+      "slug": "reggaenomics",
+      "bio": "Reggaeton bangers about supply, demand, and questionable financial decisions."
+    },
+    {
+      "name": "Sir Mix-a-Spreadsheet",
+      "slug": "sir-mix-a-spreadsheet",
+      "bio": "90s hip-hop parody devoted entirely to pivot tables and quarterly reports."
+    },
+    {
+      "name": "Smellevator",
+      "slug": "smellevator"
+    }
+  ],
+  "genres": [
+    { "name": "Power Ballad", "slug": "power-ballad" },
+    { "name": "Reggaeton", "slug": "reggaeton" },
+    { "name": "Hip-Hop", "slug": "hip-hop" },
+    { "name": "Elevator Music", "slug": "elevator-music" }
+  ],
+  "categories": [
+    { "name": "Fart Songs", "slug": "fart-songs" },
+    { "name": "Office Life", "slug": "office-life" },
+    { "name": "Cars & Gas Stations", "slug": "cars-and-gas-stations" },
+    { "name": "Farts", "slug": "farts" }
+  ],
+  "songs": [
+    {
+      "title": "My Tank's On Empty",
+      "slug": "my-tanks-on-empty",
+      "artist": "gasoline-dion",
+      "genre": "power-ballad",
+      "category": "cars-and-gas-stations",
+      "audioUrl": "/audio/my-tanks-on-empty.mp3",
+      "downloadUrl": "/audio/my-tanks-on-empty.mp3",
+      "durationSeconds": 214,
+      "coverImageUrl": "/covers/my-tanks-on-empty.jpg"
+    },
+    {
+      "title": "Toot Toot (Excuse Me)",
+      "slug": "toot-toot-excuse-me",
+      "artist": "reggaenomics",
+      "genre": "reggaeton",
+      "category": "fart-songs",
+      "audioUrl": "/audio/toot-toot-excuse-me.mp3",
+      "downloadUrl": "/audio/toot-toot-excuse-me.mp3",
+      "durationSeconds": 176,
+      "coverImageUrl": "/covers/toot-toot-excuse-me.jpg"
+    },
+    {
+      "title": "Baby Got Pivot Tables",
+      "slug": "baby-got-pivot-tables",
+      "artist": "sir-mix-a-spreadsheet",
+      "genre": "hip-hop",
+      "category": "office-life",
+      "audioUrl": "/audio/baby-got-pivot-tables.mp3",
+      "downloadUrl": "/audio/baby-got-pivot-tables.mp3",
+      "durationSeconds": 198,
+      "coverImageUrl": "/covers/baby-got-pivot-tables.jpg"
+    },
+    {
+      "title": "Smellevator",
+      "slug": "smellevator",
+      "artist": "smellevator",
+      "genre": "elevator-music",
+      "category": "farts",
+      "audioUrl": "/audio/smellevator.mp3",
+      "downloadUrl": "/audio/smellevator.mp3",
+      "coverImageUrl": "/covers/smellevator.jpeg"
+    },
+    {
+      "title": "Stretch the Smell",
+      "slug": "stretch-the-smell",
+      "artist": "smellevator",
+      "genre": "elevator-music",
+      "category": "farts",
+      "audioUrl": "/audio/stretch-the-smell.mp3",
+      "downloadUrl": "/audio/stretch-the-smell.mp3",
+      "coverImageUrl": "/covers/stretch-the-smell.jpeg"
+    }
+  ]
+}

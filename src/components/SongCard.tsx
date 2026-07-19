@@ -21,9 +21,15 @@ export function SongCard({ song }: { song: SongWithRelations }) {
         </span>
       </div>
 
-      <AudioPlayer src={song.audioUrl} title={song.title} />
-
-      <DownloadButton songId={song.id} />
+      <div className="flex items-center gap-3">
+        <AudioPlayer
+          songId={song.id}
+          src={song.audioUrl}
+          title={song.title}
+          artistName={song.artist.name}
+        />
+        <DownloadButton songId={song.id} />
+      </div>
     </li>
   );
 }

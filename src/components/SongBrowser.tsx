@@ -42,6 +42,46 @@ export function SongBrowser({
     });
   }, [songs, search, artist, genre, category]);
 
+  const clearAll = () => {
+    setSearch("");
+    setArtist(ALL);
+    setGenre(ALL);
+    setCategory(ALL);
+  };
+
+  const activeFilters = useMemo(() => {
+    const chips: { key: string; label: string; onRemove: () => void }[] = [];
+    if (search.trim()) {
+      chips.push({
+        key: "search",
+        label: `"${search.trim()}"`,
+        onRemove: () => setSearch(""),
+      });
+    }
+    if (artist !== ALL) {
+      chips.push({
+        key: "artist",
+        label: artists.find((a) => a.id === artist)?.name ?? "Artist",
+        onRemove: () => setArtist(ALL),
+      });
+    }
+    if (genre !== ALL) {
+      chips.push({
+        key: "genre",
+        label: genres.find((g) => g.id === genre)?.name ?? "Genre",
+        onRemove: () => setGenre(ALL),
+      });
+    }
+    if (category !== ALL) {
+      chips.push({
+        key: "category",
+        label: categories.find((c) => c.id === category)?.name ?? "Category",
+        onRemove: () => setCategory(ALL),
+      });
+    }
+    return chips;
+  }, [search, artist, genre, category, artists, genres, categories]);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
@@ -93,12 +133,51 @@ export function SongBrowser({
             ))}
           </select>
         </div>
+
+        {activeFilters.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {activeFilters.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={chip.onRemove}
+                aria-label={`Remove filter ${chip.label}`}
+                className="inline-flex items-center gap-1 rounded-full bg-black/5 px-3 py-1 text-xs hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20"
+              >
+                {chip.label}
+                <span aria-hidden>×</span>
+              </button>
+            ))}
+            {activeFilters.length > 1 && (
+              <button
+                type="button"
+                onClick={clearAll}
+                className="text-xs text-black/60 underline hover:text-black dark:text-white/60 dark:hover:text-white"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {filteredSongs.length === 0 ? (
-        <p className="py-8 text-center text-sm text-black/60 dark:text-white/60">
-          No songs match your search.
-        </p>
+        <div className="py-8 text-center text-sm text-black/60 dark:text-white/60">
+          <p>
+            {activeFilters.length > 0
+              ? "No songs match your filters."
+              : "No songs match your search."}
+          </p>
+          {activeFilters.length > 0 && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="mt-2 underline hover:text-black dark:hover:text-white"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
       ) : (
         <ul className="flex flex-col gap-3">
           {filteredSongs.map((song) => (

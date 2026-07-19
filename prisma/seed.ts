@@ -27,6 +27,11 @@ async function main() {
   const contentPath = path.join(process.cwd(), "content", "songs.json");
   const content: SongsContent = JSON.parse(readFileSync(contentPath, "utf-8"));
 
+  await prisma.song.deleteMany();
+  await prisma.artist.deleteMany();
+  await prisma.genre.deleteMany();
+  await prisma.category.deleteMany();
+
   for (const artist of content.artists) {
     await prisma.artist.upsert({
       where: { slug: artist.slug },

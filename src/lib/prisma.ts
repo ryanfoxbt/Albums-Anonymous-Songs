@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { connectionStringWithoutSslMode } from "@/lib/db-url";
 
 declare global {
   var prismaGlobal: PrismaClient | undefined;
@@ -7,7 +8,9 @@ declare global {
 
 function createPrismaClient() {
   const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: connectionStringWithoutSslMode(
+      process.env.DATABASE_URL as string,
+    ),
     ssl: { rejectUnauthorized: false },
   });
   return new PrismaClient({ adapter });

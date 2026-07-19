@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { connectionStringWithoutSslMode } from "../src/lib/db-url";
 
 type SongsContent = {
   artists: { name: string; slug: string; bio?: string }[];
@@ -21,7 +22,9 @@ type SongsContent = {
 };
 
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: connectionStringWithoutSslMode(
+    process.env.DATABASE_URL as string,
+  ),
   ssl: { rejectUnauthorized: false },
 });
 const prisma = new PrismaClient({ adapter });

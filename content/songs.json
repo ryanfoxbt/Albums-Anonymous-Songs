@@ -1,21 +1,6 @@
 {
   "artists": [
     {
-      "name": "Gasoline Dion",
-      "slug": "gasoline-dion",
-      "bio": "Belts out power ballads about premium unleaded and the used car she'll never let go."
-    },
-    {
-      "name": "Reggaenomics",
-      "slug": "reggaenomics",
-      "bio": "Reggaeton bangers about supply, demand, and questionable financial decisions."
-    },
-    {
-      "name": "Sir Mix-a-Spreadsheet",
-      "slug": "sir-mix-a-spreadsheet",
-      "bio": "90s hip-hop parody devoted entirely to pivot tables and quarterly reports."
-    },
-    {
       "name": "Smellevator",
       "slug": "smellevator"
     },
@@ -26,15 +11,10 @@
     }
   ],
   "genres": [
-    { "name": "Power Ballad", "slug": "power-ballad" },
-    { "name": "Reggaeton", "slug": "reggaeton" },
     { "name": "Hip-Hop", "slug": "hip-hop" },
     { "name": "Elevator Music", "slug": "elevator-music" }
   ],
   "categories": [
-    { "name": "Fart Songs", "slug": "fart-songs" },
-    { "name": "Office Life", "slug": "office-life" },
-    { "name": "Cars & Gas Stations", "slug": "cars-and-gas-stations" },
     { "name": "Farts", "slug": "farts" },
     { "name": "Dad Life", "slug": "dad-life" }
   ],

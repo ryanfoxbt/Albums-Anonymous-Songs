@@ -18,6 +18,8 @@ function createPrismaClient() {
 
 export const prisma = globalThis.prismaGlobal ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
-  globalThis.prismaGlobal = prisma;
-}
+// Cache in all environments, not just dev: a warm serverless instance reuses
+// this module scope across requests, and without caching here every request
+// opened a brand-new connection pool that was never closed, exhausting
+// Supabase's session-mode connection cap within a handful of requests.
+globalThis.prismaGlobal = prisma;

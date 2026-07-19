@@ -20,7 +20,10 @@ type SongsContent = {
   }[];
 };
 
-const adapter = new PrismaPg(process.env.DATABASE_URL as string);
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
 const prisma = new PrismaClient({ adapter });
 
 async function main() {

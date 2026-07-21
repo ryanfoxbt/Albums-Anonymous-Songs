@@ -27,7 +27,10 @@
       "category": "farts",
       "audioUrl": "/audio/smellevator.mp3",
       "downloadUrl": "/audio/smellevator.mp3",
-      "coverImageUrl": "/covers/smellevator.jpeg"
+      "coverImageUrl": "/covers/smellevator.jpeg",
+      "podcastEpisodeTitle": "The Stone Roses + Goo Wave & The Mouse House",
+      "podcastEpisodeUrl": "https://www.youtube.com/watch?v=Ib4au07mA7A",
+      "firstHeardOnEpisode": 53
     },
     {
       "title": "Stretch the Smell",
@@ -37,7 +40,10 @@
       "category": "farts",
       "audioUrl": "/audio/stretch-the-smell.mp3",
       "downloadUrl": "/audio/stretch-the-smell.mp3",
-      "coverImageUrl": "/covers/stretch-the-smell.jpeg"
+      "coverImageUrl": "/covers/stretch-the-smell.jpeg",
+      "podcastEpisodeTitle": "The Offspring - Americana; plus Smellevator, Nasally Yours, NOFNS",
+      "podcastEpisodeUrl": "https://www.youtube.com/watch?v=70LDFQ1F65s",
+      "firstHeardOnEpisode": 55
     },
     {
       "title": "Costco Food Court",
@@ -47,7 +53,10 @@
       "category": "dad-life",
       "audioUrl": "/audio/costco-food-court.mp3",
       "downloadUrl": "/audio/costco-food-court.mp3",
-      "coverImageUrl": "/covers/costco-food-court.jpeg"
+      "coverImageUrl": "/covers/costco-food-court.jpeg",
+      "podcastEpisodeTitle": "Youthanize the Elderly, Brozart, Kall of Booty, Ronald Reggae",
+      "podcastEpisodeUrl": "https://www.youtube.com/watch?v=GjVoVTLhB4o",
+      "firstHeardOnEpisode": 23
     }
   ]
 }

@@ -18,6 +18,9 @@ type SongsContent = {
     downloadUrl: string;
     durationSeconds?: number;
     coverImageUrl?: string;
+    podcastEpisodeTitle?: string;
+    podcastEpisodeUrl?: string;
+    firstHeardOnEpisode?: number;
   }[];
 };
 
@@ -77,6 +80,9 @@ async function main() {
         downloadUrl: song.downloadUrl,
         durationSeconds: song.durationSeconds,
         coverImageUrl: song.coverImageUrl,
+        podcastEpisodeTitle: song.podcastEpisodeTitle,
+        podcastEpisodeUrl: song.podcastEpisodeUrl,
+        firstHeardOnEpisode: song.firstHeardOnEpisode,
         artistId: artist.id,
         genreId: genre.id,
         categoryId: category.id,
@@ -88,6 +94,9 @@ async function main() {
         downloadUrl: song.downloadUrl,
         durationSeconds: song.durationSeconds,
         coverImageUrl: song.coverImageUrl,
+        podcastEpisodeTitle: song.podcastEpisodeTitle,
+        podcastEpisodeUrl: song.podcastEpisodeUrl,
+        firstHeardOnEpisode: song.firstHeardOnEpisode,
         artistId: artist.id,
         genreId: genre.id,
         categoryId: category.id,

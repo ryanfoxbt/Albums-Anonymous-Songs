@@ -19,6 +19,9 @@ export type SongWithRelations = {
   downloadUrl: string;
   durationSeconds: number | null;
   coverImageUrl: string | null;
+  podcastEpisodeTitle: string | null;
+  podcastEpisodeUrl: string | null;
+  firstHeardOnEpisode: number | null;
   artistId: string;
   genreId: string;
   categoryId: string;
@@ -41,6 +44,9 @@ type SongsContent = {
     downloadUrl: string;
     durationSeconds?: number;
     coverImageUrl?: string;
+    podcastEpisodeTitle?: string;
+    podcastEpisodeUrl?: string;
+    firstHeardOnEpisode?: number;
   }[];
 };
 
@@ -110,6 +116,9 @@ function fallbackSongs(): SongWithRelations[] {
       downloadUrl: song.downloadUrl,
       durationSeconds: song.durationSeconds ?? null,
       coverImageUrl: song.coverImageUrl ?? null,
+      podcastEpisodeTitle: song.podcastEpisodeTitle ?? null,
+      podcastEpisodeUrl: song.podcastEpisodeUrl ?? null,
+      firstHeardOnEpisode: song.firstHeardOnEpisode ?? null,
       artistId: artist.id,
       genreId: genre.id,
       categoryId: category.id,

@@ -7,11 +7,15 @@ export function AudioPlayer({
   src,
   title,
   artistName,
+  podcastEpisodeTitle,
+  podcastEpisodeUrl,
 }: {
   songId: string;
   src: string;
   title: string;
   artistName: string;
+  podcastEpisodeTitle?: string | null;
+  podcastEpisodeUrl?: string | null;
 }) {
   const { currentSong, isPlaying, playSong } = usePlayer();
   const isThisPlaying = currentSong?.id === songId && isPlaying;
@@ -19,7 +23,16 @@ export function AudioPlayer({
   return (
     <button
       type="button"
-      onClick={() => playSong({ id: songId, title, artistName, src })}
+      onClick={() =>
+        playSong({
+          id: songId,
+          title,
+          artistName,
+          src,
+          podcastEpisodeTitle,
+          podcastEpisodeUrl,
+        })
+      }
       aria-label={isThisPlaying ? `Pause ${title}` : `Play ${title}`}
       className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
     >

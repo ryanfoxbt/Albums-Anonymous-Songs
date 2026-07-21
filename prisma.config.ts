@@ -10,6 +10,11 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Prefer a direct (non-pooled) connection for CLI commands like `db push`
+    // and `migrate`, since pgbouncer's transaction mode can't grant the
+    // advisory lock the schema engine needs. The app's runtime Prisma client
+    // (src/lib/prisma.ts) always uses DATABASE_URL directly and never reads
+    // this file, so this only affects CLI operations.
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });

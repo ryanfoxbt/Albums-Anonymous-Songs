@@ -7,7 +7,7 @@ export function SongCard({ song }: { song: SongWithRelations }) {
     <li className="flex flex-col gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
       <div>
         <h3 className="font-semibold leading-tight">{song.title}</h3>
-        <p className="text-sm text-black/60 dark:text-white/60">
+        <p className="text-sm text-[#F760D6]">
           {song.artist.name}
         </p>
       </div>
@@ -27,6 +27,8 @@ export function SongCard({ song }: { song: SongWithRelations }) {
           src={song.audioUrl}
           title={song.title}
           artistName={song.artist.name}
+          podcastEpisodeTitle={song.podcastEpisodeTitle}
+          podcastEpisodeUrl={song.podcastEpisodeUrl}
         />
         <DownloadButton songId={song.id} />
       </div>

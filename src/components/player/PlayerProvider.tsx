@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { hasReachedStreamLimit, recordStream } from "@/lib/anonymousStreamLimit";
 
 export type PlayerSong = {
   id: string;
@@ -29,7 +28,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [currentSong, setCurrentSong] = useState<PlayerSong | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [streamLimitReached, setStreamLimitReached] = useState(false);
-  const { isLoaded, isSignedIn } = useUser();
+  const { isSignedIn } = useUser();
 
   const playSong = (song: PlayerSong) => {
     const audio = audioRef.current;
@@ -44,18 +43,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (isLoaded && !isSignedIn && hasReachedStreamLimit()) {
-      setStreamLimitReached(true);
-      return;
-    }
-
     audio.src = song.src;
     audio.play();
     setCurrentSong(song);
-
-    if (isLoaded && !isSignedIn) {
-      recordStream();
-    }
   };
 
   const togglePlay = () => {

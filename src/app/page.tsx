@@ -1,4 +1,5 @@
 import { SongBrowser } from "@/components/SongBrowser";
+import { SubscribeForm } from "@/components/SubscribeForm";
 import { getArtists, getCategories, getGenres, getSongs } from "@/lib/songs";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,23 @@ export default async function Home() {
           genres={genres}
           categories={categories}
         />
+
+        <footer className="mt-6 flex flex-col gap-3 border-t border-black/10 pt-4 dark:border-white/10">
+          <SubscribeForm />
+
+          <p className="text-xs text-black/40 dark:text-white/40">
+            Albums Anonymous is a podcast from{" "}
+            <a
+              href="https://www.permrecords.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-black/60 dark:hover:text-white/60"
+            >
+              Permanent Records LLC
+            </a>
+            .
+          </p>
+        </footer>
       </main>
     </div>
   );

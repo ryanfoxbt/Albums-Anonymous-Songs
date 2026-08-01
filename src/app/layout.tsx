@@ -4,7 +4,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/Header";
 import { PlayerProvider } from "@/components/player/PlayerProvider";
 import { NowPlayingBar } from "@/components/player/NowPlayingBar";
-import { StreamLimitOverlay } from "@/components/player/StreamLimitOverlay";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,7 +43,6 @@ export default function RootLayout({
             <Header />
             <div className="flex flex-1 flex-col">{children}</div>
             <NowPlayingBar />
-            <StreamLimitOverlay />
           </PlayerProvider>
         </body>
       </html>

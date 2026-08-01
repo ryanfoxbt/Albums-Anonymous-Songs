@@ -1,6 +1,5 @@
 "use client";
 
-import { DownloadButton } from "../DownloadButton";
 import { PodcastEpisodeBadge } from "./PodcastEpisodeBadge";
 import { usePlayer } from "./PlayerProvider";
 
@@ -39,8 +38,6 @@ export function NowPlayingBar() {
               {currentSong.artistName}
             </p>
           </div>
-
-          <DownloadButton songId={currentSong.id} />
         </div>
 
         <PodcastEpisodeBadge

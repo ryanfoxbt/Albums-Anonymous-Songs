@@ -1,6 +1,5 @@
 import type { SongWithRelations } from "@/lib/songs";
 import { AudioPlayer } from "./AudioPlayer";
-import { DownloadButton } from "./DownloadButton";
 
 export function SongCard({ song }: { song: SongWithRelations }) {
   return (
@@ -30,7 +29,6 @@ export function SongCard({ song }: { song: SongWithRelations }) {
           podcastEpisodeTitle={song.podcastEpisodeTitle}
           podcastEpisodeUrl={song.podcastEpisodeUrl}
         />
-        <DownloadButton songId={song.id} />
       </div>
     </li>
   );

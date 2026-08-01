@@ -1,3 +1,4 @@
+import { PodcastLinks } from "@/components/PodcastLinks";
 import { SongBrowser } from "@/components/SongBrowser";
 import { SubscribeForm } from "@/components/SubscribeForm";
 import { getArtists, getCategories, getGenres, getSongs } from "@/lib/songs";
@@ -34,6 +35,8 @@ export default async function Home() {
 
         <footer className="mt-6 flex flex-col gap-3 border-t border-black/10 pt-4 dark:border-white/10">
           <SubscribeForm />
+
+          <PodcastLinks />
 
           <p className="text-xs text-black/40 dark:text-white/40">
             Albums Anonymous is a podcast from{" "}

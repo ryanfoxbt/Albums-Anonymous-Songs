@@ -15,8 +15,15 @@
     { "name": "Elevator Music", "slug": "elevator-music" }
   ],
   "categories": [
-    { "name": "Farts", "slug": "farts" },
-    { "name": "Dad Life", "slug": "dad-life" }
+    { "name": "Smells", "slug": "smells" },
+    { "name": "Dad Life", "slug": "dad-life" },
+    { "name": "Medical", "slug": "medical" },
+    { "name": "Conservative Reggae", "slug": "conservative-reggae" },
+    { "name": "Birding", "slug": "birding" },
+    { "name": "Bro Classical", "slug": "bro-classical" },
+    { "name": "Random Ass", "slug": "random-ass" },
+    { "name": "Uncomfortable", "slug": "uncomfortable" },
+    { "name": "Cringe", "slug": "cringe" }
   ],
   "songs": [
     {
@@ -24,7 +31,7 @@
       "slug": "smellevator",
       "artist": "smellevator",
       "genre": "elevator-music",
-      "category": "farts",
+      "category": "smells",
       "audioUrl": "/audio/smellevator.mp3",
       "downloadUrl": "/audio/smellevator.mp3",
       "coverImageUrl": "/covers/smellevator.jpeg",
@@ -37,7 +44,7 @@
       "slug": "stretch-the-smell",
       "artist": "smellevator",
       "genre": "elevator-music",
-      "category": "farts",
+      "category": "smells",
       "audioUrl": "/audio/stretch-the-smell.mp3",
       "downloadUrl": "/audio/stretch-the-smell.mp3",
       "coverImageUrl": "/covers/stretch-the-smell.jpeg",

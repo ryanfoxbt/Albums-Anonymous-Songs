@@ -1,4 +1,10 @@
+"use client";
+
+import { quickCreateArtist } from "@/app/admin/artists/actions";
+import { quickCreateCategory } from "@/app/admin/categories/actions";
+import { quickCreateGenre } from "@/app/admin/genres/actions";
 import type { ArtistSummary, CategorySummary, GenreSummary } from "@/lib/songs";
+import { EntityPicker } from "./EntityPicker";
 
 const fieldClass =
   "w-full rounded-lg border border-black/15 px-3 py-2 text-sm dark:border-white/20 dark:bg-transparent";
@@ -62,71 +68,32 @@ export function SongForm({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex flex-col gap-1">
-          <label className={labelClass} htmlFor="artistId">
-            Artist
-          </label>
-          <select
-            id="artistId"
-            name="artistId"
-            required
-            defaultValue={song?.artistId ?? ""}
-            className={fieldClass}
-          >
-            <option value="" disabled>
-              Select artist
-            </option>
-            {artists.map((artist) => (
-              <option key={artist.id} value={artist.id}>
-                {artist.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <EntityPicker
+          name="artistId"
+          label="Artist"
+          fieldClass={fieldClass}
+          initialOptions={artists}
+          defaultSelectedId={song?.artistId}
+          onCreate={quickCreateArtist}
+        />
 
-        <div className="flex flex-col gap-1">
-          <label className={labelClass} htmlFor="genreId">
-            Genre
-          </label>
-          <select
-            id="genreId"
-            name="genreId"
-            required
-            defaultValue={song?.genreId ?? ""}
-            className={fieldClass}
-          >
-            <option value="" disabled>
-              Select genre
-            </option>
-            {genres.map((genre) => (
-              <option key={genre.id} value={genre.id}>
-                {genre.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <EntityPicker
+          name="genreId"
+          label="Genre"
+          fieldClass={fieldClass}
+          initialOptions={genres}
+          defaultSelectedId={song?.genreId}
+          onCreate={quickCreateGenre}
+        />
 
-        <div className="flex flex-col gap-1">
-          <label className={labelClass} htmlFor="categoryId">
-            Category
-          </label>
-          <select
-            id="categoryId"
-            name="categoryId"
-            required
-            defaultValue={song?.categoryId ?? ""}
-            className={fieldClass}
-          >
-            <option value="" disabled>
-              Select category
-            </option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <EntityPicker
+          name="categoryId"
+          label="Category"
+          fieldClass={fieldClass}
+          initialOptions={categories}
+          defaultSelectedId={song?.categoryId}
+          onCreate={quickCreateCategory}
+        />
       </div>
 
       <div className="flex flex-col gap-1">

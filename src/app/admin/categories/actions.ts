@@ -71,6 +71,27 @@ export async function updateCategory(categoryId: string, formData: FormData) {
   redirect("/admin/categories");
 }
 
+export async function quickCreateCategory(
+  name: string,
+): Promise<{ id: string; name: string } | { error: string }> {
+  await requireAdmin();
+
+  const trimmed = name.trim();
+  if (!trimmed) return { error: "Name is required." };
+  const slug = slugify(trimmed);
+
+  try {
+    const category = await prisma.category.create({
+      data: { name: trimmed, slug },
+    });
+    revalidatePath("/admin/categories");
+    return { id: category.id, name: category.name };
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    return { error: "A category with that name already exists." };
+  }
+}
+
 export async function deleteCategory(formData: FormData) {
   await requireAdmin();
 

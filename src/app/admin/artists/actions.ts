@@ -78,6 +78,27 @@ export async function updateArtist(artistId: string, formData: FormData) {
   redirect("/admin/artists");
 }
 
+export async function quickCreateArtist(
+  name: string,
+): Promise<{ id: string; name: string } | { error: string }> {
+  await requireAdmin();
+
+  const trimmed = name.trim();
+  if (!trimmed) return { error: "Name is required." };
+  const slug = slugify(trimmed);
+
+  try {
+    const artist = await prisma.artist.create({
+      data: { name: trimmed, slug },
+    });
+    revalidatePath("/admin/artists");
+    return { id: artist.id, name: artist.name };
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    return { error: "An artist with that name already exists." };
+  }
+}
+
 export async function deleteArtist(formData: FormData) {
   await requireAdmin();
 

@@ -68,6 +68,25 @@ export async function updateGenre(genreId: string, formData: FormData) {
   redirect("/admin/genres");
 }
 
+export async function quickCreateGenre(
+  name: string,
+): Promise<{ id: string; name: string } | { error: string }> {
+  await requireAdmin();
+
+  const trimmed = name.trim();
+  if (!trimmed) return { error: "Name is required." };
+  const slug = slugify(trimmed);
+
+  try {
+    const genre = await prisma.genre.create({ data: { name: trimmed, slug } });
+    revalidatePath("/admin/genres");
+    return { id: genre.id, name: genre.name };
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    return { error: "A genre with that name already exists." };
+  }
+}
+
 export async function deleteGenre(formData: FormData) {
   await requireAdmin();
 

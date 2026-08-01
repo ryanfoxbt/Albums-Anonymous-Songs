@@ -1,3 +1,4 @@
+import { formatArtistCredit } from "@/lib/artistCredit";
 import type { SongWithRelations } from "@/lib/songs";
 import { AudioPlayer } from "./AudioPlayer";
 
@@ -6,9 +7,7 @@ export function SongCard({ song }: { song: SongWithRelations }) {
     <li className="flex flex-col gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
       <div>
         <h3 className="font-semibold leading-tight">{song.title}</h3>
-        <p className="text-sm text-[#F760D6]">
-          {song.artist.name}
-        </p>
+        <p className="text-sm text-[#F760D6]">{formatArtistCredit(song)}</p>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
@@ -25,7 +24,7 @@ export function SongCard({ song }: { song: SongWithRelations }) {
           songId={song.id}
           src={song.audioUrl}
           title={song.title}
-          artistName={song.artist.name}
+          artistName={formatArtistCredit(song)}
           podcastEpisodeTitle={song.podcastEpisodeTitle}
           podcastEpisodeUrl={song.podcastEpisodeUrl}
         />

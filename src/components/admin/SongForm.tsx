@@ -33,6 +33,7 @@ export function SongForm({
     podcastEpisodeUrl: string | null;
     firstHeardOnEpisode: number | null;
     artistId: string;
+    featuredArtistId: string | null;
     genreId: string;
     categoryId: string;
   };
@@ -64,6 +65,10 @@ export function SongForm({
   );
   const handleCategoryPending = useCallback(
     (pending: boolean) => handlePickerPending("category", pending),
+    [handlePickerPending],
+  );
+  const handleFeaturedArtistPending = useCallback(
+    (pending: boolean) => handlePickerPending("featuredArtist", pending),
     [handlePickerPending],
   );
 
@@ -128,6 +133,19 @@ export function SongForm({
           defaultSelectedId={song?.categoryId}
           onCreate={quickCreateCategory}
           onPendingChange={handleCategoryPending}
+        />
+      </div>
+
+      <div className="max-w-xs">
+        <EntityPicker
+          name="featuredArtistId"
+          label="Featured artist"
+          fieldClass={fieldClass}
+          initialOptions={artists}
+          defaultSelectedId={song?.featuredArtistId ?? undefined}
+          onCreate={quickCreateArtist}
+          onPendingChange={handleFeaturedArtistPending}
+          required={false}
         />
       </div>
 

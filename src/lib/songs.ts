@@ -23,9 +23,11 @@ export type SongWithRelations = {
   podcastEpisodeUrl: string | null;
   firstHeardOnEpisode: number | null;
   artistId: string;
+  featuredArtistId: string | null;
   genreId: string;
   categoryId: string;
   artist: ArtistSummary;
+  featuredArtist: ArtistSummary | null;
   genre: GenreSummary;
   category: CategorySummary;
 };
@@ -120,9 +122,11 @@ function fallbackSongs(): SongWithRelations[] {
       podcastEpisodeUrl: song.podcastEpisodeUrl ?? null,
       firstHeardOnEpisode: song.firstHeardOnEpisode ?? null,
       artistId: artist.id,
+      featuredArtistId: null,
       genreId: genre.id,
       categoryId: category.id,
       artist,
+      featuredArtist: null,
       genre,
       category,
     };
@@ -136,7 +140,12 @@ export async function getSongs(): Promise<SongWithRelations[]> {
   }
   try {
     return await prisma.song.findMany({
-      include: { artist: true, genre: true, category: true },
+      include: {
+        artist: true,
+        featuredArtist: true,
+        genre: true,
+        category: true,
+      },
       orderBy: { title: "asc" },
     });
   } catch (error) {
@@ -151,7 +160,12 @@ export async function getSongsByIds(
   if (ids.length === 0) return [];
   const songs = await prisma.song.findMany({
     where: { id: { in: ids } },
-    include: { artist: true, genre: true, category: true },
+    include: {
+      artist: true,
+      featuredArtist: true,
+      genre: true,
+      category: true,
+    },
   });
   const byId = new Map(songs.map((song) => [song.id, song]));
   return ids.map((id) => byId.get(id)).filter((song) => song !== undefined);

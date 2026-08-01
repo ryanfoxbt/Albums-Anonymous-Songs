@@ -13,6 +13,7 @@ export function EntityPicker({
   defaultSelectedId,
   onCreate,
   onPendingChange,
+  required = true,
 }: {
   name: string;
   label: string;
@@ -21,6 +22,7 @@ export function EntityPicker({
   defaultSelectedId?: string;
   onCreate: (name: string) => Promise<CreateResult>;
   onPendingChange?: (pending: boolean) => void;
+  required?: boolean;
 }) {
   const [options, setOptions] = useState(initialOptions);
   const [selectedId, setSelectedId] = useState(defaultSelectedId ?? "");
@@ -59,13 +61,13 @@ export function EntityPicker({
         <select
           id={name}
           name={name}
-          required
+          required={required}
           value={selectedId}
           onChange={(event) => setSelectedId(event.target.value)}
           className={fieldClass}
         >
-          <option value="" disabled>
-            Select {label.toLowerCase()}
+          <option value="" disabled={required}>
+            {required ? `Select ${label.toLowerCase()}` : "None"}
           </option>
           {options.map((option) => (
             <option key={option.id} value={option.id}>

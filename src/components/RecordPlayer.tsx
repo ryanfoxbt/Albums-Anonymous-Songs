@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { formatArtistCredit } from "@/lib/artistCredit";
 import type { SongWithRelations } from "@/lib/songs";
 import { usePlayer } from "./player/PlayerProvider";
 
@@ -96,7 +97,7 @@ export function RecordPlayer({
     playSong({
       id: song.id,
       title: song.title,
-      artistName: song.artist.name,
+      artistName: formatArtistCredit(song),
       src: song.audioUrl,
       podcastEpisodeTitle: song.podcastEpisodeTitle,
       podcastEpisodeUrl: song.podcastEpisodeUrl,
@@ -261,7 +262,7 @@ export function RecordPlayer({
                 <span className="min-w-0 flex-1 truncate">
                   {song.title}{" "}
                   <span className={isActive ? "text-white/80" : "text-black/50 dark:text-white/50"}>
-                    — {song.artist.name}
+                    — {formatArtistCredit(song)}
                   </span>
                 </span>
                 {isActive && isPlaying && (

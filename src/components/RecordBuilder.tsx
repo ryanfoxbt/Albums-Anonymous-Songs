@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { formatArtistCredit } from "@/lib/artistCredit";
 import type { SongWithRelations } from "@/lib/songs";
 import { editTokenStorageKey } from "@/lib/recordEditStorage";
 
@@ -126,7 +127,7 @@ export function RecordBuilder({
                 <span className="min-w-0 flex-1 truncate">
                   {song.title}{" "}
                   <span className="text-black/50 dark:text-white/50">
-                    — {song.artist.name}
+                    — {formatArtistCredit(song)}
                   </span>
                 </span>
                 <button
@@ -230,7 +231,9 @@ export function RecordBuilder({
                 />
                 <span className="min-w-0 flex-1 truncate">
                   <span className="font-medium">{song.title}</span>{" "}
-                  <span className="text-[#F760D6]">{song.artist.name}</span>
+                  <span className="text-[#F760D6]">
+                    {formatArtistCredit(song)}
+                  </span>
                 </span>
               </label>
             </li>

@@ -84,6 +84,10 @@ export async function createSong(formData: FormData) {
     "covers",
   );
 
+  const rawFeaturedArtistId = optionalString(formData.get("featuredArtistId"));
+  const featuredArtistId =
+    rawFeaturedArtistId === artistId ? null : rawFeaturedArtistId;
+
   let createError: string | null = null;
   try {
     await prisma.song.create({
@@ -100,6 +104,7 @@ export async function createSong(formData: FormData) {
         podcastEpisodeUrl: optionalString(formData.get("podcastEpisodeUrl")),
         firstHeardOnEpisode: optionalInt(formData.get("firstHeardOnEpisode")),
         artistId,
+        featuredArtistId,
         genreId,
         categoryId,
       },
@@ -157,6 +162,10 @@ export async function updateSong(songId: string, formData: FormData) {
   const audioUrl = newAudioUrl ?? existing.audioUrl;
   const coverImageUrl = newCoverUrl ?? existing.coverImageUrl;
 
+  const rawFeaturedArtistId = optionalString(formData.get("featuredArtistId"));
+  const featuredArtistId =
+    rawFeaturedArtistId === artistId ? null : rawFeaturedArtistId;
+
   let updateError: string | null = null;
   try {
     await prisma.song.update({
@@ -174,6 +183,7 @@ export async function updateSong(songId: string, formData: FormData) {
         podcastEpisodeUrl: optionalString(formData.get("podcastEpisodeUrl")),
         firstHeardOnEpisode: optionalInt(formData.get("firstHeardOnEpisode")),
         artistId,
+        featuredArtistId,
         genreId,
         categoryId,
       },

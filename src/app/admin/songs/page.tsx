@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { formatArtistCredit } from "@/lib/artistCredit";
 import { prisma } from "@/lib/prisma";
 import { deleteSong } from "./actions";
 
@@ -8,7 +9,12 @@ export default async function AdminSongsPage({
 }: PageProps<"/admin/songs">) {
   const { error } = await searchParams;
   const songs = await prisma.song.findMany({
-    include: { artist: true, genre: true, category: true },
+    include: {
+      artist: true,
+      featuredArtist: true,
+      genre: true,
+      category: true,
+    },
     orderBy: { title: "asc" },
   });
 
@@ -37,7 +43,8 @@ export default async function AdminSongsPage({
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{song.title}</p>
               <p className="truncate text-black/50 dark:text-white/50">
-                {song.artist.name} · {song.genre.name} · {song.category.name}
+                {formatArtistCredit(song)} · {song.genre.name} ·{" "}
+                {song.category.name}
               </p>
             </div>
             <Link

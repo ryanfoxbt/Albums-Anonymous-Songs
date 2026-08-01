@@ -11,11 +11,12 @@ datasource db {
 }
 
 model Artist {
-  id    String @id @default(cuid())
-  name  String
-  slug  String @unique
-  bio   String?
-  songs Song[]
+  id         String @id @default(cuid())
+  name       String
+  slug       String @unique
+  bio        String?
+  songs      Song[] @relation("SongArtist")
+  featuredOn Song[] @relation("SongFeaturedArtist")
 }
 
 model Genre {
@@ -47,8 +48,11 @@ model Song {
   podcastEpisodeUrl   String?
   firstHeardOnEpisode Int?
 
-  artist   Artist @relation(fields: [artistId], references: [id])
+  artist   Artist @relation("SongArtist", fields: [artistId], references: [id])
   artistId String
+
+  featuredArtist   Artist? @relation("SongFeaturedArtist", fields: [featuredArtistId], references: [id])
+  featuredArtistId String?
 
   genre   Genre  @relation(fields: [genreId], references: [id])
   genreId String
@@ -57,6 +61,7 @@ model Song {
   categoryId String
 
   @@index([artistId])
+  @@index([featuredArtistId])
   @@index([genreId])
   @@index([categoryId])
 }

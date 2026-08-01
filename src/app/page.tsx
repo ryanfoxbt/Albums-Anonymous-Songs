@@ -1,4 +1,5 @@
 import { PodcastLinks } from "@/components/PodcastLinks";
+import { SocialLinks } from "@/components/SocialLinks";
 import { SongBrowser } from "@/components/SongBrowser";
 import { SubscribeForm } from "@/components/SubscribeForm";
 import { getArtists, getCategories, getGenres, getSongs } from "@/lib/songs";
@@ -37,6 +38,8 @@ export default async function Home() {
           <SubscribeForm />
 
           <PodcastLinks />
+
+          <SocialLinks />
 
           <p className="text-xs text-black/40 dark:text-white/40">
             Albums Anonymous is a podcast from{" "}

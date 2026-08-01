@@ -145,6 +145,18 @@ export async function getSongs(): Promise<SongWithRelations[]> {
   }
 }
 
+export async function getSongsByIds(
+  ids: string[],
+): Promise<SongWithRelations[]> {
+  if (ids.length === 0) return [];
+  const songs = await prisma.song.findMany({
+    where: { id: { in: ids } },
+    include: { artist: true, genre: true, category: true },
+  });
+  const byId = new Map(songs.map((song) => [song.id, song]));
+  return ids.map((id) => byId.get(id)).filter((song) => song !== undefined);
+}
+
 export async function getArtists(): Promise<ArtistSummary[]> {
   if (!process.env.DATABASE_URL) {
     warnFallback("artists");

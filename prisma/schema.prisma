@@ -60,3 +60,12 @@ model Song {
   @@index([genreId])
   @@index([categoryId])
 }
+
+model PressedRecord {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  songIds   String[]
+  editToken String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

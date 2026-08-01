@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { quickCreateArtist } from "@/app/admin/artists/actions";
 import { quickCreateCategory } from "@/app/admin/categories/actions";
 import { quickCreateGenre } from "@/app/admin/genres/actions";
@@ -37,6 +38,37 @@ export function SongForm({
   };
   submitLabel: string;
 }) {
+  const [pendingPickers, setPendingPickers] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  const handlePickerPending = useCallback((key: string, pending: boolean) => {
+    setPendingPickers((current) => {
+      const next = new Set(current);
+      if (pending) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleArtistPending = useCallback(
+    (pending: boolean) => handlePickerPending("artist", pending),
+    [handlePickerPending],
+  );
+  const handleGenrePending = useCallback(
+    (pending: boolean) => handlePickerPending("genre", pending),
+    [handlePickerPending],
+  );
+  const handleCategoryPending = useCallback(
+    (pending: boolean) => handlePickerPending("category", pending),
+    [handlePickerPending],
+  );
+
+  const addInProgress = pendingPickers.size > 0;
+
   return (
     <form action={action} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
@@ -75,6 +107,7 @@ export function SongForm({
           initialOptions={artists}
           defaultSelectedId={song?.artistId}
           onCreate={quickCreateArtist}
+          onPendingChange={handleArtistPending}
         />
 
         <EntityPicker
@@ -84,6 +117,7 @@ export function SongForm({
           initialOptions={genres}
           defaultSelectedId={song?.genreId}
           onCreate={quickCreateGenre}
+          onPendingChange={handleGenrePending}
         />
 
         <EntityPicker
@@ -93,6 +127,7 @@ export function SongForm({
           initialOptions={categories}
           defaultSelectedId={song?.categoryId}
           onCreate={quickCreateCategory}
+          onPendingChange={handleCategoryPending}
         />
       </div>
 
@@ -199,9 +234,10 @@ export function SongForm({
 
       <button
         type="submit"
-        className="mt-2 inline-flex items-center justify-center self-start rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
+        disabled={addInProgress}
+        className="mt-2 inline-flex items-center justify-center self-start rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90 disabled:opacity-60"
       >
-        {submitLabel}
+        {addInProgress ? "Finishing add..." : submitLabel}
       </button>
     </form>
   );

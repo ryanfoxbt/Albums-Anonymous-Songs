@@ -15,6 +15,13 @@ function isUniqueConstraintError(error: unknown): boolean {
   );
 }
 
+function isForeignKeyError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2003"
+  );
+}
+
 async function uploadIfProvided(
   file: FormDataEntryValue | null,
   prefix: string,
@@ -98,11 +105,19 @@ export async function createSong(formData: FormData) {
       },
     });
   } catch (error) {
-    if (!isUniqueConstraintError(error)) throw error;
-    createError = "That slug is already taken.";
+    if (isUniqueConstraintError(error)) {
+      createError = "That slug is already taken.";
+    } else if (isForeignKeyError(error)) {
+      createError =
+        "Artist, genre, or category wasn't fully saved yet — please try submitting again.";
+    } else {
+      throw error;
+    }
   }
 
   if (createError) {
+    await deleteBlobIfPossible(audioUrl);
+    await deleteBlobIfPossible(coverImageUrl);
     redirect(`/admin/songs/new?error=${encodeURIComponent(createError)}`);
   }
 
@@ -164,11 +179,19 @@ export async function updateSong(songId: string, formData: FormData) {
       },
     });
   } catch (error) {
-    if (!isUniqueConstraintError(error)) throw error;
-    updateError = "That slug is already taken.";
+    if (isUniqueConstraintError(error)) {
+      updateError = "That slug is already taken.";
+    } else if (isForeignKeyError(error)) {
+      updateError =
+        "Artist, genre, or category wasn't fully saved yet — please try submitting again.";
+    } else {
+      throw error;
+    }
   }
 
   if (updateError) {
+    if (newAudioUrl) await deleteBlobIfPossible(newAudioUrl);
+    if (newCoverUrl) await deleteBlobIfPossible(newCoverUrl);
     redirect(
       `/admin/songs/${songId}?error=${encodeURIComponent(updateError)}`,
     );

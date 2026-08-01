@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 type Option = { id: string; name: string };
 type CreateResult = { id: string; name: string } | { error: string };
@@ -12,6 +12,7 @@ export function EntityPicker({
   initialOptions,
   defaultSelectedId,
   onCreate,
+  onPendingChange,
 }: {
   name: string;
   label: string;
@@ -19,6 +20,7 @@ export function EntityPicker({
   initialOptions: Option[];
   defaultSelectedId?: string;
   onCreate: (name: string) => Promise<CreateResult>;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const [options, setOptions] = useState(initialOptions);
   const [selectedId, setSelectedId] = useState(defaultSelectedId ?? "");
@@ -26,6 +28,10 @@ export function EntityPicker({
   const [newName, setNewName] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    onPendingChange?.(isPending);
+  }, [isPending, onPendingChange]);
 
   const handleAdd = () => {
     setError("");

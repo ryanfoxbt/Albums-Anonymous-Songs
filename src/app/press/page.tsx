@@ -1,10 +1,15 @@
 import { RecordBuilder } from "@/components/RecordBuilder";
-import { getSongs } from "@/lib/songs";
+import { getArtists, getCategories, getGenres, getSongs } from "@/lib/songs";
 
 export const dynamic = "force-dynamic";
 
 export default async function PressPage() {
-  const songs = await getSongs();
+  const [songs, artists, genres, categories] = await Promise.all([
+    getSongs(),
+    getArtists(),
+    getGenres(),
+    getCategories(),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
@@ -19,7 +24,12 @@ export default async function PressPage() {
           </p>
         </header>
 
-        <RecordBuilder songs={songs} />
+        <RecordBuilder
+          songs={songs}
+          artists={artists}
+          genres={genres}
+          categories={categories}
+        />
       </main>
     </div>
   );

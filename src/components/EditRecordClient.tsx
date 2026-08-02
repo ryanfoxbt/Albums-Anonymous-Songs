@@ -1,17 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import type { SongWithRelations } from "@/lib/songs";
+import type {
+  ArtistSummary,
+  CategorySummary,
+  GenreSummary,
+  SongWithRelations,
+} from "@/lib/songs";
 import { useStoredEditToken } from "@/lib/recordEditStorage";
 import { RecordBuilder } from "./RecordBuilder";
 
 export function EditRecordClient({
   slug,
   songs,
+  artists,
+  genres,
+  categories,
   initialSelectedIds,
 }: {
   slug: string;
   songs: SongWithRelations[];
+  artists: ArtistSummary[];
+  genres: GenreSummary[];
+  categories: CategorySummary[];
   initialSelectedIds: string[];
 }) {
   const editToken = useStoredEditToken(slug);
@@ -35,6 +46,9 @@ export function EditRecordClient({
   return (
     <RecordBuilder
       songs={songs}
+      artists={artists}
+      genres={genres}
+      categories={categories}
       mode="edit"
       slug={slug}
       editToken={editToken}

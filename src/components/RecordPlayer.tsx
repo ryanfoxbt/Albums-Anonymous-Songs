@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { formatArtistCredit } from "@/lib/artistCredit";
+import { toPlayerSong } from "@/lib/playerSong";
 import type { SongWithRelations } from "@/lib/songs";
 import { usePlayer } from "./player/PlayerProvider";
 
@@ -36,7 +37,7 @@ export function RecordPlayer({
   songs: SongWithRelations[];
   slug: string;
 }) {
-  const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
+  const { currentSong, isPlaying, playQueue, togglePlay } = usePlayer();
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingRef = useRef(false);
   const movedRef = useRef(false);
@@ -94,14 +95,7 @@ export function RecordPlayer({
       if (!liveDrag) togglePlay();
       return;
     }
-    playSong({
-      id: song.id,
-      title: song.title,
-      artistName: formatArtistCredit(song),
-      src: song.audioUrl,
-      podcastEpisodeTitle: song.podcastEpisodeTitle,
-      podcastEpisodeUrl: song.podcastEpisodeUrl,
-    });
+    playQueue(songs.slice(index - 1).map(toPlayerSong), 0);
   };
 
   const handlePointerDown = (event: React.PointerEvent) => {

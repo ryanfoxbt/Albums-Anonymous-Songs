@@ -3,19 +3,32 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatArtistCredit } from "@/lib/artistCredit";
-import type { SongWithRelations } from "@/lib/songs";
+import type {
+  ArtistSummary,
+  CategorySummary,
+  GenreSummary,
+  SongWithRelations,
+} from "@/lib/songs";
 import { editTokenStorageKey } from "@/lib/recordEditStorage";
+import { useSongFilters } from "@/lib/useSongFilters";
+import { SongFilterControls } from "./SongFilterControls";
 
 const MAX_TRACKS = 10;
 
 export function RecordBuilder({
   songs,
+  artists,
+  genres,
+  categories,
   mode = "create",
   slug,
   editToken,
   initialSelectedIds = [],
 }: {
   songs: SongWithRelations[];
+  artists: ArtistSummary[];
+  genres: GenreSummary[];
+  categories: CategorySummary[];
   mode?: "create" | "edit";
   slug?: string;
   editToken?: string;
@@ -26,6 +39,8 @@ export function RecordBuilder({
   const [newSlug, setNewSlug] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const filters = useSongFilters(songs, artists, genres, categories);
+  const { filteredSongs } = filters;
 
   const selectedSongs = selectedIds
     .map((id) => songs.find((song) => song.id === id))
@@ -209,37 +224,50 @@ export function RecordBuilder({
         </div>
       )}
 
-      <ul className="flex flex-col gap-2">
-        {songs.map((song) => {
-          const checked = selectedIds.includes(song.id);
-          const disabled = !checked && selectedIds.length >= MAX_TRACKS;
-          return (
-            <li key={song.id}>
-              <label
-                className={`flex touch-manipulation items-center gap-3 rounded-2xl border border-black/10 p-3 text-sm dark:border-white/10 ${
-                  disabled
-                    ? "opacity-40"
-                    : "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={disabled}
-                  onChange={() => toggleSong(song.id)}
-                  className="h-5 w-5"
-                />
-                <span className="min-w-0 flex-1 truncate">
-                  <span className="font-medium">{song.title}</span>{" "}
-                  <span className="text-[#F760D6]">
-                    {formatArtistCredit(song)}
+      <SongFilterControls
+        filters={filters}
+        artists={artists}
+        genres={genres}
+        categories={categories}
+      />
+
+      {filteredSongs.length === 0 ? (
+        <p className="py-8 text-center text-sm text-black/60 dark:text-white/60">
+          No songs match your filters.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {filteredSongs.map((song) => {
+            const checked = selectedIds.includes(song.id);
+            const disabled = !checked && selectedIds.length >= MAX_TRACKS;
+            return (
+              <li key={song.id}>
+                <label
+                  className={`flex touch-manipulation items-center gap-3 rounded-2xl border border-black/10 p-3 text-sm dark:border-white/10 ${
+                    disabled
+                      ? "opacity-40"
+                      : "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={() => toggleSong(song.id)}
+                    className="h-5 w-5"
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="font-medium">{song.title}</span>{" "}
+                    <span className="text-[#F760D6]">
+                      {formatArtistCredit(song)}
+                    </span>
                   </span>
-                </span>
-              </label>
-            </li>
-          );
-        })}
-      </ul>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

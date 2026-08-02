@@ -19,6 +19,7 @@ export type SongWithRelations = {
   downloadUrl: string;
   durationSeconds: number | null;
   coverImageUrl: string | null;
+  hidden: boolean;
   podcastEpisodeTitle: string | null;
   podcastEpisodeUrl: string | null;
   firstHeardOnEpisode: number | null;
@@ -118,6 +119,7 @@ function fallbackSongs(): SongWithRelations[] {
       downloadUrl: song.downloadUrl,
       durationSeconds: song.durationSeconds ?? null,
       coverImageUrl: song.coverImageUrl ?? null,
+      hidden: false,
       podcastEpisodeTitle: song.podcastEpisodeTitle ?? null,
       podcastEpisodeUrl: song.podcastEpisodeUrl ?? null,
       firstHeardOnEpisode: song.firstHeardOnEpisode ?? null,
@@ -133,13 +135,19 @@ function fallbackSongs(): SongWithRelations[] {
   });
 }
 
-export async function getSongs(): Promise<SongWithRelations[]> {
+export async function getSongs(
+  options?: { includeHidden?: boolean },
+): Promise<SongWithRelations[]> {
+  const includeHidden = options?.includeHidden ?? false;
+
   if (!process.env.DATABASE_URL) {
     warnFallback("songs");
-    return fallbackSongs();
+    const songs = fallbackSongs();
+    return includeHidden ? songs : songs.filter((song) => !song.hidden);
   }
   try {
     return await prisma.song.findMany({
+      where: includeHidden ? undefined : { hidden: false },
       include: {
         artist: true,
         featuredArtist: true,
@@ -150,7 +158,8 @@ export async function getSongs(): Promise<SongWithRelations[]> {
     });
   } catch (error) {
     warnFallback("songs", error);
-    return fallbackSongs();
+    const songs = fallbackSongs();
+    return includeHidden ? songs : songs.filter((song) => !song.hidden);
   }
 }
 

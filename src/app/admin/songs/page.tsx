@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { formatArtistCredit } from "@/lib/artistCredit";
 import { prisma } from "@/lib/prisma";
-import { deleteSong } from "./actions";
+import { deleteSong, toggleSongHidden } from "./actions";
 
 export default async function AdminSongsPage({
   searchParams,
@@ -41,7 +41,14 @@ export default async function AdminSongsPage({
             className="flex items-center gap-3 rounded-2xl border border-black/10 p-3 text-sm dark:border-white/10"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{song.title}</p>
+              <p className="flex items-center gap-2 truncate font-medium">
+                {song.title}
+                {song.hidden && (
+                  <span className="shrink-0 rounded-full bg-black/10 px-2 py-0.5 text-xs font-normal text-black/60 dark:bg-white/10 dark:text-white/60">
+                    Hidden
+                  </span>
+                )}
+              </p>
               <p className="truncate text-black/50 dark:text-white/50">
                 {formatArtistCredit(song)} · {song.genre.name} ·{" "}
                 {song.category.name}
@@ -53,6 +60,15 @@ export default async function AdminSongsPage({
             >
               Edit
             </Link>
+            <form action={toggleSongHidden}>
+              <input type="hidden" name="songId" value={song.id} />
+              <button
+                type="submit"
+                className="shrink-0 rounded-full border border-black/15 px-3 py-1.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              >
+                {song.hidden ? "Unhide" : "Hide"}
+              </button>
+            </form>
             <form action={deleteSong}>
               <input type="hidden" name="songId" value={song.id} />
               <ConfirmSubmitButton

@@ -41,6 +41,7 @@ model Song {
   downloadUrl     String
   durationSeconds Int?
   coverImageUrl   String?
+  hidden          Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

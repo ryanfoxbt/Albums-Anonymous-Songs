@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { EditRecordClient } from "@/components/EditRecordClient";
 import { prisma } from "@/lib/prisma";
-import { getSongs } from "@/lib/songs";
+import { getArtists, getCategories, getGenres, getSongs } from "@/lib/songs";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,12 @@ export default async function EditRecordPage({
     );
   }
 
-  const songs = await getSongs();
+  const [songs, artists, genres, categories] = await Promise.all([
+    getSongs({ includeHidden: true }),
+    getArtists(),
+    getGenres(),
+    getCategories(),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
@@ -49,6 +54,9 @@ export default async function EditRecordPage({
         <EditRecordClient
           slug={slug}
           songs={songs}
+          artists={artists}
+          genres={genres}
+          categories={categories}
           initialSelectedIds={record.songIds}
         />
       </main>

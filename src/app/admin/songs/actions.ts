@@ -219,6 +219,24 @@ export async function updateSong(songId: string, formData: FormData) {
   redirect("/admin/songs");
 }
 
+export async function toggleSongHidden(formData: FormData) {
+  await requireAdmin();
+
+  const songId = String(formData.get("songId") ?? "");
+  const existing = await prisma.song.findUnique({ where: { id: songId } });
+  if (!existing) {
+    redirect(`/admin/songs?error=${encodeURIComponent("Song not found.")}`);
+  }
+
+  await prisma.song.update({
+    where: { id: songId },
+    data: { hidden: !existing.hidden },
+  });
+
+  revalidatePath("/admin/songs");
+  revalidatePath("/");
+}
+
 export async function deleteSong(formData: FormData) {
   await requireAdmin();
 

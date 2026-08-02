@@ -29,7 +29,7 @@ export default async function ListenPage() {
             >
               sub below
             </a>
-            . Fight the FOMO!
+            . Fight FOMO.
           </p>
         </header>
 

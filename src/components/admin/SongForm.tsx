@@ -27,7 +27,6 @@ export function SongForm({
     title: string;
     slug: string;
     audioUrl: string;
-    coverImageUrl: string | null;
     durationSeconds: number | null;
     podcastEpisodeTitle: string | null;
     podcastEpisodeUrl: string | null;
@@ -169,29 +168,6 @@ export function SongForm({
           type="file"
           accept="audio/*"
           required={!song}
-          className={fieldClass}
-        />
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label className={labelClass} htmlFor="coverFile">
-          Cover image{song ? " (leave blank to keep current image)" : ""}
-        </label>
-        {song?.coverImageUrl && (
-          <a
-            href={song.coverImageUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-black/50 underline dark:text-white/50"
-          >
-            Current image
-          </a>
-        )}
-        <input
-          id="coverFile"
-          name="coverFile"
-          type="file"
-          accept="image/*"
           className={fieldClass}
         />
       </div>

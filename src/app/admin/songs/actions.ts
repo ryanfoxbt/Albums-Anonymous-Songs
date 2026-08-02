@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { del, put } from "@vercel/blob";
+import { del } from "@vercel/blob";
 import { Prisma } from "@/generated/prisma/client";
 import { requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/prisma";
@@ -20,17 +20,6 @@ function isForeignKeyError(error: unknown): boolean {
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2003"
   );
-}
-
-async function uploadIfProvided(
-  file: FormDataEntryValue | null,
-  prefix: string,
-): Promise<string | null> {
-  if (!(file instanceof File) || file.size === 0) return null;
-  const blob = await put(`${prefix}/${Date.now()}-${file.name}`, file, {
-    access: "public",
-  });
-  return blob.url;
 }
 
 function optionalInt(value: FormDataEntryValue | null): number | null {
@@ -71,7 +60,7 @@ export async function createSong(formData: FormData) {
     );
   }
 
-  const audioUrl = await uploadIfProvided(formData.get("audioFile"), "audio");
+  const audioUrl = optionalString(formData.get("audioUrl"));
   if (!audioUrl) {
     redirect(
       `/admin/songs/new?error=${encodeURIComponent(
@@ -149,7 +138,7 @@ export async function updateSong(songId: string, formData: FormData) {
     );
   }
 
-  const newAudioUrl = await uploadIfProvided(formData.get("audioFile"), "audio");
+  const newAudioUrl = optionalString(formData.get("audioUrl"));
   const audioUrl = newAudioUrl ?? existing.audioUrl;
 
   const rawFeaturedArtistId = optionalString(formData.get("featuredArtistId"));

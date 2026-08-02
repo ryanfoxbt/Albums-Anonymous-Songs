@@ -1,5 +1,6 @@
 "use client";
 
+import { upload } from "@vercel/blob/client";
 import { useCallback, useState } from "react";
 import { quickCreateArtist } from "@/app/admin/artists/actions";
 import { quickCreateCategory } from "@/app/admin/categories/actions";
@@ -41,6 +42,37 @@ export function SongForm({
   const [pendingPickers, setPendingPickers] = useState<Set<string>>(
     () => new Set(),
   );
+  const [audioUploadUrl, setAudioUploadUrl] = useState<string | null>(null);
+  const [audioUploading, setAudioUploading] = useState(false);
+  const [audioUploadProgress, setAudioUploadProgress] = useState(0);
+  const [audioUploadError, setAudioUploadError] = useState("");
+
+  const handleAudioFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      setAudioUploadUrl(null);
+      setAudioUploadError("");
+      setAudioUploadProgress(0);
+      setAudioUploading(true);
+      try {
+        const blob = await upload(file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/admin/audio-upload",
+          onUploadProgress: ({ percentage }) =>
+            setAudioUploadProgress(percentage),
+        });
+        setAudioUploadUrl(blob.url);
+      } catch {
+        setAudioUploadError("Upload failed. Please try again.");
+        event.target.value = "";
+      } finally {
+        setAudioUploading(false);
+      }
+    },
+    [],
+  );
 
   const handlePickerPending = useCallback((key: string, pending: boolean) => {
     setPendingPickers((current) => {
@@ -71,7 +103,9 @@ export function SongForm({
     [handlePickerPending],
   );
 
-  const addInProgress = pendingPickers.size > 0;
+  const pickersPending = pendingPickers.size > 0;
+  const audioRequired = !song && !audioUploadUrl;
+  const submitDisabled = pickersPending || audioUploading || audioRequired;
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -164,12 +198,27 @@ export function SongForm({
         )}
         <input
           id="audioFile"
-          name="audioFile"
           type="file"
           accept="audio/*"
-          required={!song}
+          onChange={handleAudioFileChange}
           className={fieldClass}
         />
+        <input type="hidden" name="audioUrl" value={audioUploadUrl ?? ""} />
+        {audioUploading && (
+          <p className="text-xs text-black/50 dark:text-white/50">
+            Uploading... {audioUploadProgress.toFixed(0)}%
+          </p>
+        )}
+        {audioUploadUrl && !audioUploading && (
+          <p className="text-xs text-green-600 dark:text-green-400">
+            Upload complete.
+          </p>
+        )}
+        {audioUploadError && (
+          <p className="text-xs text-red-600 dark:text-red-400">
+            {audioUploadError}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -228,10 +277,14 @@ export function SongForm({
 
       <button
         type="submit"
-        disabled={addInProgress}
+        disabled={submitDisabled}
         className="mt-2 inline-flex items-center justify-center self-start rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90 disabled:opacity-60"
       >
-        {addInProgress ? "Finishing add..." : submitLabel}
+        {pickersPending
+          ? "Finishing add..."
+          : audioUploading
+            ? "Uploading audio..."
+            : submitLabel}
       </button>
     </form>
   );

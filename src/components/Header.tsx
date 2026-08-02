@@ -13,6 +13,13 @@ export function Header() {
 
         <div className="flex items-center gap-3 sm:gap-4">
           <Link
+            href="/listen"
+            className="text-xs font-medium text-black/60 hover:text-black sm:text-sm dark:text-white/60 dark:hover:text-white"
+          >
+            Listen
+          </Link>
+
+          <Link
             href="/press"
             className="text-xs font-medium text-black/60 hover:text-black sm:text-sm dark:text-white/60 dark:hover:text-white"
           >

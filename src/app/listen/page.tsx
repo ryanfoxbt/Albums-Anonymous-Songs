@@ -22,8 +22,14 @@ export default async function ListenPage() {
             Albums Anonymous
           </h1>
           <p className="text-sm text-black/60 dark:text-white/60">
-            Funny original songs, parody artists included. Stream free,
-            anytime — no login required.
+            Premium stupidity, deuced weekly. Stream free, sans login -{" "}
+            <a
+              href="#subscribe"
+              className="underline hover:text-black dark:hover:text-white"
+            >
+              sub below
+            </a>
+            . Fight the FOMO!
           </p>
         </header>
 
@@ -35,7 +41,9 @@ export default async function ListenPage() {
         />
 
         <footer className="mt-6 flex flex-col gap-3 border-t border-black/10 pt-4 dark:border-white/10">
-          <SubscribeForm />
+          <div id="subscribe" className="scroll-mt-20">
+            <SubscribeForm />
+          </div>
 
           <PodcastLinks />
 

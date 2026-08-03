@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HeroTitleAnimation } from "@/components/landing/HeroTitleAnimation";
 
 export default function Home() {
   return (
@@ -11,9 +12,7 @@ export default function Home() {
           <p className="text-sm text-black/60 dark:text-white/60">
             Funny original songs meets vinyl appreciation.
           </p>
-          <p className="text-xs text-black/40 dark:text-white/40">
-            Troy Runsten &amp; Ryan Fox
-          </p>
+          <HeroTitleAnimation />
         </div>
 
         <div className="flex w-full flex-col gap-4">

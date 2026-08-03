@@ -24,6 +24,7 @@ export type OverviewStats = {
   returningSessions: number;
   totalSongPlays: number;
   totalListeningSeconds: number;
+  totalPodcastClicks: number;
   totalSubscribersAllTime: number;
   newSubscribers: number;
 };
@@ -40,6 +41,7 @@ export async function getOverviewStats(days: number): Promise<OverviewStats> {
     pageviewCountsBySession,
     totalSongPlays,
     listeningTime,
+    totalPodcastClicks,
     totalSubscribersAllTime,
     newSubscribers,
   ] = await Promise.all([
@@ -65,6 +67,7 @@ export async function getOverviewStats(days: number): Promise<OverviewStats> {
       where: { playedAt: { gte: since } },
       _sum: { listenedSeconds: true },
     }),
+    prisma.podcastLinkClick.count({ where: { clickedAt: { gte: since } } }),
     prisma.subscriber.count(),
     prisma.subscriber.count({ where: { subscribedAt: { gte: since } } }),
   ]);
@@ -89,6 +92,7 @@ export async function getOverviewStats(days: number): Promise<OverviewStats> {
     returningSessions,
     totalSongPlays,
     totalListeningSeconds: listeningTime._sum.listenedSeconds ?? 0,
+    totalPodcastClicks,
     totalSubscribersAllTime,
     newSubscribers,
   };
@@ -165,21 +169,33 @@ export type SongLeaderboardEntry = {
   uniqueListeners: number;
   completionRate: number;
   totalListenedSeconds: number;
+  podcastClicks: number;
 };
 
 export async function getSongLeaderboard(
   days: number,
   limit = 20,
 ): Promise<SongLeaderboardEntry[]> {
-  const events = await prisma.songPlayEvent.findMany({
-    where: { playedAt: { gte: daysAgo(days) } },
-    select: {
-      songId: true,
-      visitorId: true,
-      completed: true,
-      listenedSeconds: true,
-    },
-  });
+  const since = daysAgo(days);
+  const [events, clickCounts] = await Promise.all([
+    prisma.songPlayEvent.findMany({
+      where: { playedAt: { gte: since } },
+      select: {
+        songId: true,
+        visitorId: true,
+        completed: true,
+        listenedSeconds: true,
+      },
+    }),
+    prisma.podcastLinkClick.groupBy({
+      by: ["songId"],
+      where: { clickedAt: { gte: since } },
+      _count: { id: true },
+    }),
+  ]);
+  const clicksBySong = new Map(
+    clickCounts.map((row) => [row.songId, row._count.id]),
+  );
 
   const bySong = new Map<
     string,
@@ -229,6 +245,7 @@ export async function getSongLeaderboard(
         uniqueListeners: entry.listeners.size,
         completionRate: entry.plays > 0 ? entry.completed / entry.plays : 0,
         totalListenedSeconds: entry.listenedSeconds,
+        podcastClicks: clicksBySong.get(songId) ?? 0,
       };
     })
     .sort((a, b) => b.plays - a.plays)

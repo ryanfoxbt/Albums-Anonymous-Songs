@@ -41,6 +41,7 @@ export function NowPlayingBar() {
         </div>
 
         <PodcastEpisodeBadge
+          songId={currentSong.id}
           podcastEpisodeTitle={currentSong.podcastEpisodeTitle}
           podcastEpisodeUrl={currentSong.podcastEpisodeUrl}
         />

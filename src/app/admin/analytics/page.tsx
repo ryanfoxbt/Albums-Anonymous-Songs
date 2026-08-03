@@ -80,6 +80,10 @@ export default async function AdminAnalyticsPage({
           value={formatListeningTime(stats.totalListeningSeconds)}
         />
         <StatCard
+          label="YouTube clicks"
+          value={String(stats.totalPodcastClicks)}
+        />
+        <StatCard
           label="Subscribers"
           value={String(stats.totalSubscribersAllTime)}
           sublabel={`+${stats.newSubscribers} in range`}
@@ -166,6 +170,8 @@ export default async function AdminAnalyticsPage({
                 <span className="shrink-0 text-black/60 dark:text-white/60">
                   {song.plays} plays ·{" "}
                   {formatListeningTime(song.totalListenedSeconds)}
+                  {song.podcastClicks > 0 &&
+                    ` · ${song.podcastClicks} YT click${song.podcastClicks === 1 ? "" : "s"}`}
                 </span>
               </li>
             ))}

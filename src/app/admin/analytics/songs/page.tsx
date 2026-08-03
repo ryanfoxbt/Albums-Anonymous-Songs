@@ -43,6 +43,10 @@ export default async function AdminAnalyticsSongsPage() {
             <span className="shrink-0 text-black/60 dark:text-white/60">
               {formatPercent(song.completionRate)} completion
             </span>
+            <span className="shrink-0 text-black/60 dark:text-white/60">
+              {song.podcastClicks} YT click
+              {song.podcastClicks === 1 ? "" : "s"}
+            </span>
           </li>
         ))}
         {songs.length === 0 && (

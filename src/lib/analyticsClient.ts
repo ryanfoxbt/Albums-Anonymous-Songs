@@ -60,3 +60,7 @@ export function trackSongProgress(
 ) {
   beacon("/api/track/song-progress", { eventId, listenedSeconds, completed });
 }
+
+export function trackPodcastClick(songId: string, url: string, path: string) {
+  beacon("/api/track/podcast-click", { songId, url, path });
+}

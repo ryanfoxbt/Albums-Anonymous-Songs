@@ -68,7 +68,8 @@ model Song {
   category   Category @relation(fields: [categoryId], references: [id])
   categoryId String
 
-  songPlays SongPlayEvent[]
+  songPlays         SongPlayEvent[]
+  podcastLinkClicks PodcastLinkClick[]
 
   @@index([artistId])
   @@index([featuredArtistId])
@@ -105,9 +106,10 @@ model Visitor {
   firstLandingPath String?
   country          String?
 
-  sessions   VisitSession[]
-  songPlays  SongPlayEvent[]
-  subscriber Subscriber?
+  sessions          VisitSession[]
+  songPlays         SongPlayEvent[]
+  podcastLinkClicks PodcastLinkClick[]
+  subscriber        Subscriber?
 
   @@index([createdAt])
 }
@@ -134,8 +136,9 @@ model VisitSession {
   browser     String?
   os          String?
 
-  pageViews PageView[]
-  songPlays SongPlayEvent[]
+  pageViews         PageView[]
+  songPlays         SongPlayEvent[]
+  podcastLinkClicks PodcastLinkClick[]
 
   @@index([visitorId])
   @@index([startedAt])
@@ -171,6 +174,25 @@ model SongPlayEvent {
   @@index([songId])
   @@index([visitorId])
   @@index([playedAt])
+}
+
+// A click on the "First heard on" podcast-episode link (usually YouTube)
+// shown in the now-playing bar for the song currently loaded.
+model PodcastLinkClick {
+  id        String       @id @default(cuid())
+  song      Song         @relation(fields: [songId], references: [id], onDelete: Cascade)
+  songId    String
+  visitor   Visitor      @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  visitorId String
+  session   VisitSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId String
+  path      String
+  url       String
+  clickedAt DateTime     @default(now())
+
+  @@index([songId])
+  @@index([visitorId])
+  @@index([clickedAt])
 }
 
 // Local join key so admin analytics can tie a visitor's journey to an

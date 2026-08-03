@@ -15,23 +15,22 @@ export default function AboutPage() {
 
         <div className="flex flex-col gap-4 text-sm leading-relaxed text-black/80 dark:text-white/80">
           <p>
-            Part album club, part unhinged comedy radio show, Albums
-            Anonymous is what happens when two girl dad audiophiles are
-            given open microphones and zero supervision.
+            Albums Anonymous is part album club, part unhinged comedy radio
+            show, and entirely what happens when a deuce of dads sync their
+            love for music, their midlife crises, and reaction-worthy
+            comedy songs.
           </p>
           <p>
             Every week, we break down one of our all-time favorite records
             from front to back. But we don&apos;t just sit around stroking
             our balls over vinyl pressings—we spin the tracks, dive into
-            the chaos behind the making of the record, and spin a wildly
-            unpredictable lineup of songs that may or may not have been
-            inspired by the album of the week.
+            the chaos behind the making of the record, and roll out a
+            wildly unpredictable lineup of songs that may or may not have
+            been inspired by the album of the week.
           </p>
-          <p>
-            Is the connection sometimes a stretch? Absolutely. Is the
-            music great? Always. Is this your typical, dry music analysis
-            podcast? Not even close.
-          </p>
+          <p>Is the connection sometimes a stretch? Absolutely.</p>
+          <p>Is the music great? Always.</p>
+          <p>Is this your typical, dry music analysis podcast? Not even close.</p>
         </div>
 
         <div className="mt-2 flex flex-wrap gap-3">

@@ -49,14 +49,14 @@ export default async function ListenPage() {
             Albums Anonymous
           </h1>
           <p className="text-sm text-black/60 dark:text-white/60">
-            Premium stupidity, deuced weekly. Stream free, sans login -{" "}
+            Premium audio stupidity, deuced weekly. Stream free, no login -{" "}
             <a
               href="#subscribe"
               className="underline hover:text-black dark:hover:text-white"
             >
               sub below
             </a>
-            . Fight FOMO.
+            .
           </p>
         </header>
 

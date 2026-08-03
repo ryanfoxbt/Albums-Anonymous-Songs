@@ -33,6 +33,13 @@ model Category {
   songs Song[]
 }
 
+model SocialLink {
+  id        String   @id @default(cuid())
+  name      String
+  href      String
+  createdAt DateTime @default(now())
+}
+
 model Song {
   id              String   @id @default(cuid())
   title           String

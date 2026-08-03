@@ -1,19 +1,21 @@
-const PLATFORMS = [
-  { name: "Instagram", href: "https://www.instagram.com/permanentrecordsllc/" },
-  { name: "Twitch", href: "https://www.twitch.tv/albumsanonymous" },
-  { name: "TikTok", href: "https://www.tiktok.com/@permanentrecords" },
-];
+import { prisma } from "@/lib/prisma";
 
-export function SocialLinks() {
+export async function SocialLinks() {
+  const platforms = await prisma.socialLink.findMany({
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (platforms.length === 0) return null;
+
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs text-black/50 dark:text-white/50">
         Follow along:
       </p>
       <div className="flex flex-wrap gap-2">
-        {PLATFORMS.map((platform) => (
+        {platforms.map((platform) => (
           <a
-            key={platform.name}
+            key={platform.id}
             href={platform.href}
             target="_blank"
             rel="noopener noreferrer"

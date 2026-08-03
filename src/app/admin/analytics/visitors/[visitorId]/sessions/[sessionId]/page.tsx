@@ -1,28 +1,32 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSessionDetail } from "@/lib/analyticsQueries";
-import { formatDateTime, formatDuration } from "@/lib/formatAnalytics";
+import {
+  formatDateTime,
+  formatDuration,
+  formatListeningTime,
+} from "@/lib/formatAnalytics";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAnalyticsSessionPage({
   params,
 }: {
-  params: Promise<{ sessionId: string }>;
+  params: Promise<{ visitorId: string; sessionId: string }>;
 }) {
-  const { sessionId } = await params;
+  const { visitorId, sessionId } = await params;
   const session = await getSessionDetail(sessionId);
-  if (!session) notFound();
+  if (!session || session.visitorId !== visitorId) notFound();
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Session journey</h1>
         <Link
-          href="/admin/analytics/visitors"
+          href={`/admin/analytics/visitors/${visitorId}`}
           className="text-sm text-black/50 underline hover:text-black dark:text-white/50 dark:hover:text-white"
         >
-          Back to visitors
+          Back to {session.visitorIdentity}
         </Link>
       </div>
 
@@ -122,7 +126,7 @@ export default async function AdminAnalyticsSessionPage({
                 </span>
                 <span className="shrink-0 text-xs text-black/60 dark:text-white/60">
                   {play.listenedSeconds != null
-                    ? `${play.listenedSeconds}s`
+                    ? formatListeningTime(play.listenedSeconds)
                     : "—"}
                   {play.completed && " · completed"}
                 </span>

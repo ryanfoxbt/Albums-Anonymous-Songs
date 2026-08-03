@@ -8,7 +8,12 @@ import {
   getTopPages,
   getTopSources,
 } from "@/lib/analyticsQueries";
-import { formatDateTime, formatDuration, formatPercent } from "@/lib/formatAnalytics";
+import {
+  formatDateTime,
+  formatDuration,
+  formatListeningTime,
+  formatPercent,
+} from "@/lib/formatAnalytics";
 
 const RANGE_OPTIONS = [7, 30, 90] as const;
 
@@ -70,6 +75,10 @@ export default async function AdminAnalyticsPage({
           value={`${stats.newSessions} / ${stats.returningSessions}`}
         />
         <StatCard label="Song plays" value={String(stats.totalSongPlays)} />
+        <StatCard
+          label="Listening time"
+          value={formatListeningTime(stats.totalListeningSeconds)}
+        />
         <StatCard
           label="Subscribers"
           value={String(stats.totalSubscribersAllTime)}
@@ -155,7 +164,8 @@ export default async function AdminAnalyticsPage({
                   </span>
                 </span>
                 <span className="shrink-0 text-black/60 dark:text-white/60">
-                  {song.plays} plays
+                  {song.plays} plays ·{" "}
+                  {formatListeningTime(song.totalListenedSeconds)}
                 </span>
               </li>
             ))}

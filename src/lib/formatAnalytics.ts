@@ -10,6 +10,18 @@ export function formatDuration(ms: number): string {
   return `${seconds}s`;
 }
 
+export function formatListeningTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
+  const totalSeconds = Math.round(seconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${secs}s`;
+  return `${secs}s`;
+}
+
 export function formatPercent(fraction: number): string {
   return `${Math.round(fraction * 100)}%`;
 }

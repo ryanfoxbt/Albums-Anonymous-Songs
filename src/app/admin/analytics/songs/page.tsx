@@ -1,6 +1,6 @@
 import { AnalyticsTabs } from "@/components/admin/AnalyticsTabs";
 import { getSongLeaderboard } from "@/lib/analyticsQueries";
-import { formatPercent } from "@/lib/formatAnalytics";
+import { formatListeningTime, formatPercent } from "@/lib/formatAnalytics";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +33,9 @@ export default async function AdminAnalyticsSongsPage() {
             </div>
             <span className="shrink-0 text-black/60 dark:text-white/60">
               {song.plays} plays
+            </span>
+            <span className="shrink-0 text-black/60 dark:text-white/60">
+              {formatListeningTime(song.totalListenedSeconds)} listened
             </span>
             <span className="shrink-0 text-black/60 dark:text-white/60">
               {song.uniqueListeners} listeners

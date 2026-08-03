@@ -33,7 +33,7 @@ export default async function ListenPage() {
       name: song.title,
       byArtist: { "@type": "MusicGroup", name: song.artist.name },
       genre: song.genre.name,
-      url: "https://albumsanonymous.com/listen",
+      url: `https://albumsanonymous.com/song/${song.slug}`,
     })),
   };
 

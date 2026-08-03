@@ -24,7 +24,7 @@ export function PodcastEpisodeBadge({
       onClick={() =>
         trackPodcastClick(songId, podcastEpisodeUrl, pathname ?? "/")
       }
-      className="ml-[52px] inline-flex w-fit max-w-full items-center gap-1.5 rounded-full border border-violet-300 bg-violet-600 px-3 py-1 text-xs font-semibold tracking-tight text-white shadow-sm shadow-violet-600/20 transition-colors hover:bg-violet-500 dark:border-violet-400/50"
+      className="inline-flex w-fit max-w-full items-center gap-1.5 rounded-full border border-violet-300 bg-violet-600 px-3 py-1 text-xs font-semibold tracking-tight text-white shadow-sm shadow-violet-600/20 transition-colors hover:bg-violet-500 dark:border-violet-400/50"
     >
       <svg
         viewBox="0 0 16 16"

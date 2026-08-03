@@ -40,11 +40,13 @@ export function NowPlayingBar() {
           </div>
         </div>
 
-        <PodcastEpisodeBadge
-          songId={currentSong.id}
-          podcastEpisodeTitle={currentSong.podcastEpisodeTitle}
-          podcastEpisodeUrl={currentSong.podcastEpisodeUrl}
-        />
+        <div className="ml-[52px]">
+          <PodcastEpisodeBadge
+            songId={currentSong.id}
+            podcastEpisodeTitle={currentSong.podcastEpisodeTitle}
+            podcastEpisodeUrl={currentSong.podcastEpisodeUrl}
+          />
+        </div>
       </div>
     </div>
   );

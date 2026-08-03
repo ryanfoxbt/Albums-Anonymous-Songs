@@ -183,6 +183,30 @@ export async function getSongsByIds(
   return ids.map((id) => byId.get(id)).filter((song) => song !== undefined);
 }
 
+export async function getSongBySlug(
+  slug: string,
+): Promise<SongWithRelations | null> {
+  if (!process.env.DATABASE_URL) {
+    warnFallback("song by slug");
+    return fallbackSongs().find((song) => song.slug === slug) ?? null;
+  }
+  try {
+    const song = await prisma.song.findUnique({
+      where: { slug },
+      include: {
+        artist: true,
+        featuredArtist: true,
+        genre: true,
+        category: true,
+      },
+    });
+    return song && !song.hidden ? song : null;
+  } catch (error) {
+    warnFallback("song by slug", error);
+    return fallbackSongs().find((song) => song.slug === slug) ?? null;
+  }
+}
+
 export async function getArtists(): Promise<ArtistSummary[]> {
   if (!process.env.DATABASE_URL) {
     warnFallback("artists");

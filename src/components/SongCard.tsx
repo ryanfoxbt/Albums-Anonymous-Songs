@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { formatArtistCredit } from "@/lib/artistCredit";
 import { buildContinuousQueue } from "@/lib/continuousPlay";
 import { toPlayerSong } from "@/lib/playerSong";
@@ -28,7 +29,11 @@ export function SongCard({
   return (
     <li className="flex flex-col gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
       <div>
-        <h3 className="font-semibold leading-tight">{song.title}</h3>
+        <h3 className="font-semibold leading-tight">
+          <Link href={`/song/${song.slug}`} className="hover:underline">
+            {song.title}
+          </Link>
+        </h3>
         <p className="text-sm text-[#F760D6]">{formatArtistCredit(song)}</p>
       </div>
 

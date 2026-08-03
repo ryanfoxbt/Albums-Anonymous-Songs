@@ -26,6 +26,13 @@ export function Header() {
             Make a Playlist
           </Link>
 
+          <Link
+            href="/about"
+            className="text-xs font-medium text-black/60 hover:text-black sm:text-sm dark:text-white/60 dark:hover:text-white"
+          >
+            About
+          </Link>
+
           <a
             href="https://merch.albumsanonymous.com/"
             target="_blank"

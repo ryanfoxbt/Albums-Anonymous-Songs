@@ -23,6 +23,7 @@ export type SongWithRelations = {
   podcastEpisodeTitle: string | null;
   podcastEpisodeUrl: string | null;
   firstHeardOnEpisode: number | null;
+  lyrics: string | null;
   artistId: string;
   featuredArtistId: string | null;
   genreId: string;
@@ -50,6 +51,7 @@ type SongsContent = {
     podcastEpisodeTitle?: string;
     podcastEpisodeUrl?: string;
     firstHeardOnEpisode?: number;
+    lyrics?: string;
   }[];
 };
 
@@ -123,6 +125,7 @@ function fallbackSongs(): SongWithRelations[] {
       podcastEpisodeTitle: song.podcastEpisodeTitle ?? null,
       podcastEpisodeUrl: song.podcastEpisodeUrl ?? null,
       firstHeardOnEpisode: song.firstHeardOnEpisode ?? null,
+      lyrics: song.lyrics ?? null,
       artistId: artist.id,
       featuredArtistId: null,
       genreId: genre.id,

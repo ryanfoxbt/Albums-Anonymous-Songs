@@ -55,6 +55,7 @@ model Song {
   podcastEpisodeTitle String?
   podcastEpisodeUrl   String?
   firstHeardOnEpisode Int?
+  lyrics              String?
 
   artist   Artist @relation("SongArtist", fields: [artistId], references: [id])
   artistId String

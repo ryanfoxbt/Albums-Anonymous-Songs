@@ -32,6 +32,7 @@ export function SongForm({
     podcastEpisodeTitle: string | null;
     podcastEpisodeUrl: string | null;
     firstHeardOnEpisode: number | null;
+    lyrics: string | null;
     artistId: string;
     featuredArtistId: string | null;
     genreId: string;
@@ -272,6 +273,19 @@ export function SongForm({
           min={0}
           defaultValue={song?.firstHeardOnEpisode ?? undefined}
           className={fieldClass}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className={labelClass} htmlFor="lyrics">
+          Lyrics (optional — shown on the song&apos;s own page, helps SEO)
+        </label>
+        <textarea
+          id="lyrics"
+          name="lyrics"
+          rows={10}
+          defaultValue={song?.lyrics ?? undefined}
+          className={`${fieldClass} font-mono`}
         />
       </div>
 

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PodcastLinks } from "@/components/PodcastLinks";
 import { SocialLinks } from "@/components/SocialLinks";
 import { SongBrowser } from "@/components/SongBrowser";
@@ -5,6 +6,12 @@ import { SubscribeForm } from "@/components/SubscribeForm";
 import { getArtists, getCategories, getGenres, getSongs } from "@/lib/songs";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Listen to Funny Parody Songs",
+  description:
+    "Stream free funny original songs and parody tracks from Albums Anonymous — new songs weekly, no login required.",
+};
 
 export default async function ListenPage() {
   const [songs, artists, genres, categories] = await Promise.all([
@@ -14,8 +21,28 @@ export default async function ListenPage() {
     getCategories(),
   ]);
 
+  const musicPlaylistJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "MusicPlaylist",
+    name: "Albums Anonymous — Funny Songs",
+    description:
+      "Funny original songs and parody tracks from Albums Anonymous.",
+    numTracks: songs.length,
+    track: songs.map((song) => ({
+      "@type": "MusicRecording",
+      name: song.title,
+      byArtist: { "@type": "MusicGroup", name: song.artist.name },
+      genre: song.genre.name,
+      url: "https://albumsanonymous.com/listen",
+    })),
+  };
+
   return (
     <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(musicPlaylistJsonLd) }}
+      />
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <header className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold tracking-tight">

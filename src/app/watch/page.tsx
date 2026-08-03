@@ -2,12 +2,28 @@ import Link from "next/link";
 import { PODCAST_PLATFORMS } from "@/lib/podcastPlatforms";
 
 export const metadata = {
-  title: "Watch the Podcast — Albums Anonymous",
+  title: "Watch the Podcast",
+  description:
+    "Watch or listen to Albums Anonymous, the comedy music podcast, on YouTube, Spotify, or Apple Podcasts.",
+};
+
+const podcastJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "PodcastSeries",
+  name: "Albums Anonymous",
+  description:
+    "A comedy music podcast where classic albums get the parody-song treatment.",
+  url: "https://albumsanonymous.com/watch",
+  sameAs: PODCAST_PLATFORMS.map((platform) => platform.href),
 };
 
 export default function WatchPage() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-black">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(podcastJsonLd) }}
+      />
       <div className="flex w-full max-w-sm flex-col items-center gap-8 text-center">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight">

@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { RecordBuilder } from "@/components/RecordBuilder";
 import { getArtists, getCategories, getGenres, getSongs } from "@/lib/songs";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Make a Playlist",
+  description:
+    "Pick your favorite funny songs from Albums Anonymous and press them into a shareable custom record.",
+};
 
 export default async function PressPage() {
   const [songs, artists, genres, categories] = await Promise.all([

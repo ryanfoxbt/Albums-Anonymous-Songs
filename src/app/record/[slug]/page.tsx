@@ -1,4 +1,6 @@
+import { cache } from "react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { EditRecordLink } from "@/components/EditRecordLink";
 import { RecordPlayer } from "@/components/RecordPlayer";
 import { prisma } from "@/lib/prisma";
@@ -6,11 +8,32 @@ import { getSongsByIds } from "@/lib/songs";
 
 export const dynamic = "force-dynamic";
 
+const getRecord = cache(async (slug: string) => {
+  return prisma.pressedRecord.findUnique({ where: { slug } });
+});
+
+export async function generateMetadata({
+  params,
+}: PageProps<"/record/[slug]">): Promise<Metadata> {
+  const { slug } = await params;
+  const record = await getRecord(slug);
+  if (!record) {
+    return { title: "Record Not Found" };
+  }
+  const songCount = record.songIds.length;
+  return {
+    title: `Custom Record: ${songCount} Funny Song${songCount === 1 ? "" : "s"}`,
+    description: `A custom playlist of ${songCount} funny song${
+      songCount === 1 ? "" : "s"
+    } from Albums Anonymous, pressed and shared.`,
+  };
+}
+
 export default async function RecordPage({
   params,
 }: PageProps<"/record/[slug]">) {
   const { slug } = await params;
-  const record = await prisma.pressedRecord.findUnique({ where: { slug } });
+  const record = await getRecord(slug);
 
   if (!record) {
     return (

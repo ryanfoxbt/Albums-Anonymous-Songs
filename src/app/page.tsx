@@ -1,9 +1,43 @@
 import Link from "next/link";
 import { HeroTitleAnimation } from "@/components/landing/HeroTitleAnimation";
+import { PODCAST_PLATFORMS } from "@/lib/podcastPlatforms";
+import { prisma } from "@/lib/prisma";
 
-export default function Home() {
+// No metadata export here on purpose: a title.template set in the root
+// layout does NOT apply to page.tsx in that same root segment (only to
+// child routes), so overriding title here would silently drop the
+// " | Albums Anonymous" suffix. The layout's own `default` title/description
+// already are the ideal homepage metadata.
+
+export default async function Home() {
+  const socialLinks = await prisma.socialLink.findMany({
+    select: { href: true },
+  });
+
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Albums Anonymous",
+    url: "https://albumsanonymous.com",
+    description:
+      "Funny original songs under parody artists, plus the comedy podcast where they're born.",
+    sameAs: [
+      ...PODCAST_PLATFORMS.map((platform) => platform.href),
+      ...socialLinks.map((link) => link.href),
+    ],
+    parentOrganization: {
+      "@type": "Organization",
+      name: "Permanent Records LLC",
+      url: "https://www.permrecords.com/",
+    },
+  };
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-black">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
       <div className="flex w-full max-w-sm flex-col items-center gap-8 text-center">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold tracking-tight">

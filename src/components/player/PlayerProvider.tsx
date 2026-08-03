@@ -1,7 +1,9 @@
 "use client";
 
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
+import { trackSongPlay, trackSongProgress } from "@/lib/analyticsClient";
 
 export type PlayerSong = {
   id: string;
@@ -33,15 +35,53 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [streamLimitReached, setStreamLimitReached] = useState(false);
   const { isSignedIn } = useUser();
 
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  // Play analytics: which SongPlayEvent is currently open, flushed
+  // (with how far the listener got) whenever it stops being current.
+  const playEventIdRef = useRef<string | null>(null);
+
+  const flushSongProgress = useCallback(() => {
+    const audio = audioRef.current;
+    const eventId = playEventIdRef.current;
+    if (!eventId || !audio) return;
+    const completed =
+      Number.isFinite(audio.duration) && audio.duration > 0
+        ? audio.currentTime / audio.duration >= 0.9
+        : false;
+    trackSongProgress(eventId, Math.round(audio.currentTime), completed);
+    playEventIdRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) flushSongProgress();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", flushSongProgress);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", flushSongProgress);
+    };
+  }, [flushSongProgress]);
+
   const loadAndPlay = (song: PlayerSong) => {
     const audio = audioRef.current;
     if (!audio) return;
+    flushSongProgress();
     audio.src = song.src;
     audio.play().catch(() => {
       // A rapid song switch (e.g. drag-scrubbing the record needle, or
       // auto-advancing quickly) can abort a pending play() request — benign.
     });
     setCurrentSong(song);
+    trackSongPlay(song.id, pathnameRef.current ?? "/").then((result) => {
+      playEventIdRef.current = result?.eventId ?? null;
+    });
   };
 
   const playQueue = (songs: PlayerSong[], startIndex: number) => {
@@ -94,6 +134,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       queueIndexRef.current = nextIndex;
       loadAndPlay(next);
     } else {
+      flushSongProgress();
       setIsPlaying(false);
     }
   };

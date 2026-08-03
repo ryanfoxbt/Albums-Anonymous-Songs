@@ -61,6 +61,8 @@ model Song {
   category   Category @relation(fields: [categoryId], references: [id])
   categoryId String
 
+  songPlays SongPlayEvent[]
+
   @@index([artistId])
   @@index([featuredArtistId])
   @@index([genreId])
@@ -74,4 +76,115 @@ model PressedRecord {
   editToken String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// --- Analytics ---
+// Identity is a long-lived `aa_vid` cookie (Visitor.id) plus a 30-min
+// sliding `aa_sid` cookie (VisitSession.id), both minted in src/proxy.ts.
+// All writes happen from route handlers, never from the proxy itself.
+
+model Visitor {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  // First-touch attribution, captured once and never overwritten.
+  firstUtmSource   String?
+  firstUtmMedium   String?
+  firstUtmCampaign String?
+  firstUtmTerm     String?
+  firstUtmContent  String?
+  firstReferrer    String?
+  firstLandingPath String?
+  country          String?
+
+  sessions   VisitSession[]
+  songPlays  SongPlayEvent[]
+  subscriber Subscriber?
+
+  @@index([createdAt])
+}
+
+model VisitSession {
+  id             String   @id @default(cuid())
+  visitor        Visitor  @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  visitorId      String
+  startedAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
+  isReturning    Boolean  @default(false)
+
+  // This session's own attribution (may differ from the visitor's
+  // first-touch values if they arrive again via a different campaign).
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+  referrer    String?
+  landingPath String?
+  country     String?
+  deviceType  String?
+  browser     String?
+  os          String?
+
+  pageViews PageView[]
+  songPlays SongPlayEvent[]
+
+  @@index([visitorId])
+  @@index([startedAt])
+  @@index([utmSource, utmMedium, utmCampaign])
+}
+
+model PageView {
+  id         String       @id @default(cuid())
+  session    VisitSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId  String
+  path       String
+  visitedAt  DateTime     @default(now())
+  durationMs Int?
+
+  @@index([sessionId])
+  @@index([path])
+  @@index([visitedAt])
+}
+
+model SongPlayEvent {
+  id              String       @id @default(cuid())
+  song            Song         @relation(fields: [songId], references: [id], onDelete: Cascade)
+  songId          String
+  visitor         Visitor      @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  visitorId       String
+  session         VisitSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId       String
+  path            String
+  playedAt        DateTime     @default(now())
+  listenedSeconds Int?
+  completed       Boolean      @default(false)
+
+  @@index([songId])
+  @@index([visitorId])
+  @@index([playedAt])
+}
+
+// Local join key so admin analytics can tie a visitor's journey to an
+// email address. Resend (see src/lib/resend.ts) stays the actual
+// mailing-list source of truth — this table never sends mail.
+model Subscriber {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  visitor      Visitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  visitorId    String?  @unique
+  subscribedAt DateTime @default(now())
+}
+
+model UtmLink {
+  id              String   @id @default(cuid())
+  label           String
+  destinationPath String
+  utmSource       String
+  utmMedium       String
+  utmCampaign     String
+  utmTerm         String?
+  utmContent      String?
+  createdAt       DateTime @default(now())
 }

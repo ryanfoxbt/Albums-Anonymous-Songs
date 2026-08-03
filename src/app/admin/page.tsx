@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getOverviewStats } from "@/lib/analyticsQueries";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const [songCount, artistCount, genreCount, categoryCount] =
+  const [songCount, artistCount, genreCount, categoryCount, stats] =
     await Promise.all([
       prisma.song.count(),
       prisma.artist.count(),
       prisma.genre.count(),
       prisma.category.count(),
+      getOverviewStats(30),
     ]);
 
   const cards = [
@@ -15,6 +19,11 @@ export default async function AdminDashboard() {
     { label: "Artists", count: artistCount, href: "/admin/artists" },
     { label: "Genres", count: genreCount, href: "/admin/genres" },
     { label: "Categories", count: categoryCount, href: "/admin/categories" },
+    {
+      label: "Visitors (30d)",
+      count: stats.uniqueVisitors,
+      href: "/admin/analytics",
+    },
   ];
 
   return (

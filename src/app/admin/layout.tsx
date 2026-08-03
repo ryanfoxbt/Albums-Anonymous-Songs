@@ -66,6 +66,12 @@ export default async function AdminLayout({
             >
               Categories
             </Link>
+            <Link
+              href="/admin/analytics"
+              className="text-black/60 hover:text-black hover:underline dark:text-white/60 dark:hover:text-white"
+            >
+              Analytics
+            </Link>
           </nav>
           <UserButton />
         </div>

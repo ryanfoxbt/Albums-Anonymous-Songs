@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { DownloadButton } from "@/components/DownloadButton";
 import { PodcastEpisodeBadge } from "@/components/player/PodcastEpisodeBadge";
 import { SongPagePlayer } from "@/components/SongPagePlayer";
 import { formatArtistCredit } from "@/lib/artistCredit";
@@ -98,8 +97,6 @@ export default async function SongPage({
           podcastEpisodeTitle={song.podcastEpisodeTitle}
           podcastEpisodeUrl={song.podcastEpisodeUrl}
         />
-
-        <DownloadButton songId={song.id} />
 
         {song.lyrics && (
           <section className="flex flex-col gap-2 border-t border-black/10 pt-4 dark:border-white/10">

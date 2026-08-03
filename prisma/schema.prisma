@@ -71,11 +71,25 @@ model Song {
 
   songPlays         SongPlayEvent[]
   podcastLinkClicks PodcastLinkClick[]
+  downloadLinks     SongDownloadLink[]
 
   @@index([artistId])
   @@index([featuredArtistId])
   @@index([genreId])
   @@index([categoryId])
+}
+
+model SongDownloadLink {
+  id            String    @id @default(cuid())
+  label         String?
+  createdAt     DateTime  @default(now())
+  revokedAt     DateTime?
+  downloadCount Int       @default(0)
+
+  song   Song   @relation(fields: [songId], references: [id], onDelete: Cascade)
+  songId String
+
+  @@index([songId])
 }
 
 model PressedRecord {

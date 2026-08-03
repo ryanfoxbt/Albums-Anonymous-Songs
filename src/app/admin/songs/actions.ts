@@ -213,6 +213,38 @@ export async function toggleSongHidden(formData: FormData) {
   revalidatePath("/");
 }
 
+export async function createDownloadLink(formData: FormData) {
+  await requireAdmin();
+
+  const songId = String(formData.get("songId") ?? "");
+  const existing = await prisma.song.findUnique({ where: { id: songId } });
+  if (!existing) {
+    redirect(`/admin/songs?error=${encodeURIComponent("Song not found.")}`);
+  }
+
+  const label = optionalString(formData.get("label"));
+
+  await prisma.songDownloadLink.create({
+    data: { songId, label },
+  });
+
+  revalidatePath(`/admin/songs/${songId}`);
+}
+
+export async function revokeDownloadLink(formData: FormData) {
+  await requireAdmin();
+
+  const linkId = String(formData.get("linkId") ?? "");
+  const songId = String(formData.get("songId") ?? "");
+
+  await prisma.songDownloadLink.update({
+    where: { id: linkId },
+    data: { revokedAt: new Date() },
+  });
+
+  revalidatePath(`/admin/songs/${songId}`);
+}
+
 export async function deleteSong(formData: FormData) {
   await requireAdmin();
 

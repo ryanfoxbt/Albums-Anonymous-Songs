@@ -22,8 +22,7 @@ export function StreamLimitOverlay() {
 
         <p className="pr-6 text-sm">
           You&apos;ve used your 3 free streams for today! Log in or sign up
-          for a free account to unlock unlimited high-quality streaming and
-          download clean tracks.
+          for a free account to unlock unlimited high-quality streaming.
         </p>
 
         <div className="mt-3 flex gap-2">

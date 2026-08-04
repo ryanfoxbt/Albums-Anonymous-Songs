@@ -5,7 +5,11 @@ import { formatListeningTime, formatPercent } from "@/lib/formatAnalytics";
 export const dynamic = "force-dynamic";
 
 export default async function AdminAnalyticsSongsPage() {
-  const songs = await getSongLeaderboard(365, 200);
+  const now = new Date();
+  const songs = await getSongLeaderboard(
+    { from: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000), to: now },
+    200,
+  );
 
   return (
     <div className="flex flex-col gap-6">

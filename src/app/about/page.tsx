@@ -1,10 +1,15 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
+const title = "About";
+const description =
+  "Albums Anonymous is a comedy music podcast — part album club, part unhinged radio show — where a classic record gets torn apart and a wildly unpredictable lineup of parody songs gets born.";
+
 export const metadata: Metadata = {
-  title: "About",
-  description:
-    "Albums Anonymous is a comedy music podcast — part album club, part unhinged radio show — where a classic record gets torn apart and a wildly unpredictable lineup of parody songs gets born.",
+  title,
+  description,
+  openGraph: { title, description },
+  twitter: { title, description },
 };
 
 export default function AboutPage() {

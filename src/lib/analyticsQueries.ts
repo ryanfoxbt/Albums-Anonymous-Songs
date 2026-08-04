@@ -1,8 +1,5 @@
 import { prisma } from "@/lib/prisma";
-
-function daysAgo(days: number): Date {
-  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-}
+import type { DateRange } from "@/lib/dateRange";
 
 function sessionDurationMs(session: {
   startedAt: Date;
@@ -29,8 +26,8 @@ export type OverviewStats = {
   newSubscribers: number;
 };
 
-export async function getOverviewStats(days: number): Promise<OverviewStats> {
-  const since = daysAgo(days);
+export async function getOverviewStats(range: DateRange): Promise<OverviewStats> {
+  const startedAt = { gte: range.from, lte: range.to };
 
   const [
     uniqueVisitors,
@@ -46,30 +43,30 @@ export async function getOverviewStats(days: number): Promise<OverviewStats> {
     newSubscribers,
   ] = await Promise.all([
     prisma.visitor.count({
-      where: { sessions: { some: { startedAt: { gte: since } } } },
+      where: { sessions: { some: { startedAt } } },
     }),
-    prisma.visitSession.count({ where: { startedAt: { gte: since } } }),
-    prisma.pageView.count({ where: { visitedAt: { gte: since } } }),
+    prisma.visitSession.count({ where: { startedAt } }),
+    prisma.pageView.count({ where: { visitedAt: startedAt } }),
     prisma.visitSession.findMany({
-      where: { startedAt: { gte: since } },
+      where: { startedAt },
       select: { startedAt: true, lastActivityAt: true },
     }),
     prisma.visitSession.count({
-      where: { startedAt: { gte: since }, isReturning: true },
+      where: { startedAt, isReturning: true },
     }),
     prisma.pageView.groupBy({
       by: ["sessionId"],
-      where: { visitedAt: { gte: since } },
+      where: { visitedAt: startedAt },
       _count: { id: true },
     }),
-    prisma.songPlayEvent.count({ where: { playedAt: { gte: since } } }),
+    prisma.songPlayEvent.count({ where: { playedAt: startedAt } }),
     prisma.songPlayEvent.aggregate({
-      where: { playedAt: { gte: since } },
+      where: { playedAt: startedAt },
       _sum: { listenedSeconds: true },
     }),
-    prisma.podcastLinkClick.count({ where: { clickedAt: { gte: since } } }),
+    prisma.podcastLinkClick.count({ where: { clickedAt: startedAt } }),
     prisma.subscriber.count(),
-    prisma.subscriber.count({ where: { subscribedAt: { gte: since } } }),
+    prisma.subscriber.count({ where: { subscribedAt: startedAt } }),
   ]);
 
   const avgSessionDurationMs = sessionsForDuration.length
@@ -105,12 +102,12 @@ export type TopPage = {
 };
 
 export async function getTopPages(
-  days: number,
+  range: DateRange,
   limit = 10,
 ): Promise<TopPage[]> {
   const rows = await prisma.pageView.groupBy({
     by: ["path"],
-    where: { visitedAt: { gte: daysAgo(days) } },
+    where: { visitedAt: { gte: range.from, lte: range.to } },
     _count: { id: true },
     _avg: { durationMs: true },
     orderBy: { _count: { id: "desc" } },
@@ -124,17 +121,74 @@ export async function getTopPages(
   }));
 }
 
+export type TopLocation = {
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  sessions: number;
+};
+
+export async function getTopLocations(
+  range: DateRange,
+  limit = 10,
+): Promise<TopLocation[]> {
+  const rows = await prisma.visitSession.groupBy({
+    by: ["city", "region", "country"],
+    where: { startedAt: { gte: range.from, lte: range.to } },
+    _count: { id: true },
+    orderBy: { _count: { id: "desc" } },
+    take: limit,
+  });
+
+  return rows.map((row) => ({
+    city: row.city,
+    region: row.region,
+    country: row.country,
+    sessions: row._count.id,
+  }));
+}
+
+export type EntryChoiceBreakdown = {
+  listen: number;
+  watch: number;
+  other: number;
+  total: number;
+};
+
+// "other" covers sessions that never clicked either homepage button — a
+// direct/shared link straight to a song, /listen, or /watch page.
+export async function getEntryChoiceBreakdown(
+  range: DateRange,
+): Promise<EntryChoiceBreakdown> {
+  const rows = await prisma.visitSession.groupBy({
+    by: ["entryChoice"],
+    where: { startedAt: { gte: range.from, lte: range.to } },
+    _count: { id: true },
+  });
+
+  let listen = 0;
+  let watch = 0;
+  let other = 0;
+  for (const row of rows) {
+    if (row.entryChoice === "listen") listen = row._count.id;
+    else if (row.entryChoice === "watch") watch = row._count.id;
+    else other += row._count.id;
+  }
+
+  return { listen, watch, other, total: listen + watch + other };
+}
+
 export type TopSource = {
   label: string;
   sessions: number;
 };
 
 export async function getTopSources(
-  days: number,
+  range: DateRange,
   limit = 10,
 ): Promise<TopSource[]> {
   const sessions = await prisma.visitSession.findMany({
-    where: { startedAt: { gte: daysAgo(days) } },
+    where: { startedAt: { gte: range.from, lte: range.to } },
     select: { utmSource: true, utmMedium: true, referrer: true },
   });
 
@@ -173,13 +227,13 @@ export type SongLeaderboardEntry = {
 };
 
 export async function getSongLeaderboard(
-  days: number,
+  range: DateRange,
   limit = 20,
 ): Promise<SongLeaderboardEntry[]> {
-  const since = daysAgo(days);
+  const playedAt = { gte: range.from, lte: range.to };
   const [events, clickCounts] = await Promise.all([
     prisma.songPlayEvent.findMany({
-      where: { playedAt: { gte: since } },
+      where: { playedAt },
       select: {
         songId: true,
         visitorId: true,
@@ -189,7 +243,7 @@ export async function getSongLeaderboard(
     }),
     prisma.podcastLinkClick.groupBy({
       by: ["songId"],
-      where: { clickedAt: { gte: since } },
+      where: { clickedAt: playedAt },
       _count: { id: true },
     }),
   ]);
@@ -293,6 +347,8 @@ export type VisitorListItem = {
   songPlayCount: number;
   listeningSeconds: number;
   country: string | null;
+  region: string | null;
+  city: string | null;
 };
 
 export async function getVisitorList(limit = 50): Promise<VisitorListItem[]> {
@@ -303,7 +359,12 @@ export async function getVisitorList(limit = 50): Promise<VisitorListItem[]> {
       subscriber: true,
       sessions: {
         orderBy: { startedAt: "desc" },
-        select: { country: true, _count: { select: { pageViews: true } } },
+        select: {
+          country: true,
+          region: true,
+          city: true,
+          _count: { select: { pageViews: true } },
+        },
       },
       songPlays: { select: { listenedSeconds: true } },
       _count: { select: { sessions: true, songPlays: true } },
@@ -327,6 +388,8 @@ export async function getVisitorList(limit = 50): Promise<VisitorListItem[]> {
       0,
     ),
     country: visitor.sessions[0]?.country ?? null,
+    region: visitor.sessions[0]?.region ?? null,
+    city: visitor.sessions[0]?.city ?? null,
   }));
 }
 
@@ -343,6 +406,8 @@ export type VisitorProfile = {
   firstReferrer: string | null;
   firstLandingPath: string | null;
   country: string | null;
+  region: string | null;
+  city: string | null;
   totalPageViews: number;
   totalSongPlays: number;
   totalListeningSeconds: number;
@@ -356,6 +421,8 @@ export type VisitorProfile = {
     utmCampaign: string | null;
     deviceType: string | null;
     country: string | null;
+    region: string | null;
+    city: string | null;
   }[];
   songPlays: {
     id: string;
@@ -407,6 +474,8 @@ export async function getVisitorProfile(
     firstReferrer: visitor.firstReferrer,
     firstLandingPath: visitor.firstLandingPath,
     country: visitor.country,
+    region: visitor.region,
+    city: visitor.city,
     totalPageViews: visitor.sessions.reduce(
       (sum, session) => sum + session._count.pageViews,
       0,
@@ -423,6 +492,8 @@ export async function getVisitorProfile(
       utmCampaign: session.utmCampaign,
       deviceType: session.deviceType,
       country: session.country,
+      region: session.region,
+      city: session.city,
     })),
     songPlays: visitor.songPlays.map((play) => ({
       id: play.id,
@@ -452,6 +523,8 @@ export type SessionDetail = {
   browser: string | null;
   os: string | null;
   country: string | null;
+  region: string | null;
+  city: string | null;
   subscriberEmail: string | null;
   pageViews: { id: string; path: string; visitedAt: Date; durationMs: number | null }[];
   songPlays: {
@@ -497,6 +570,8 @@ export async function getSessionDetail(
     browser: session.browser,
     os: session.os,
     country: session.country,
+    region: session.region,
+    city: session.city,
     subscriberEmail: session.visitor.subscriber?.email ?? null,
     pageViews: session.pageViews.map((pv) => ({
       id: pv.id,

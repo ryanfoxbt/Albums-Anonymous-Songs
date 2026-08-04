@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   ensureVisitorAndSession,
-  getGeoCountry,
+  getGeoLocation,
   isBot,
   parseUtmParams,
 } from "@/lib/analyticsTracking";
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     utm,
     referrer,
     userAgent,
-    country: getGeoCountry(request.headers),
+    geo: getGeoLocation(request.headers),
   });
 
   const pageView = await prisma.pageView.create({

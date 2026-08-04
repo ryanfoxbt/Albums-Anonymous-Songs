@@ -64,3 +64,7 @@ export function trackSongProgress(
 export function trackPodcastClick(songId: string, url: string, path: string) {
   beacon("/api/track/podcast-click", { songId, url, path });
 }
+
+export function trackEntryChoice(choice: "listen" | "watch") {
+  beacon("/api/track/entry-choice", { choice });
+}

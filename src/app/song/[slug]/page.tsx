@@ -24,9 +24,14 @@ export async function generateMetadata({
     ? ` First heard on: ${song.podcastEpisodeTitle}.`
     : "";
 
+  const title = `${song.title} — ${artistCredit}`;
+  const description = `"${song.title}" by ${artistCredit}, a funny ${song.genre.name.toLowerCase()} parody song from Albums Anonymous — funny original songs plus the comedy podcast where they're born.${episodeNote}`;
+
   return {
-    title: `${song.title} — ${artistCredit}`,
-    description: `"${song.title}" by ${artistCredit}, a funny ${song.genre.name.toLowerCase()} parody song from Albums Anonymous.${episodeNote}`,
+    title,
+    description,
+    openGraph: { title, description },
+    twitter: { title, description },
   };
 }
 

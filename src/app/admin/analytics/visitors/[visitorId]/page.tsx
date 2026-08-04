@@ -5,6 +5,7 @@ import {
   formatDateTime,
   formatDuration,
   formatListeningTime,
+  formatLocation,
 } from "@/lib/formatAnalytics";
 
 export const dynamic = "force-dynamic";
@@ -68,8 +69,8 @@ export default async function AdminAnalyticsVisitorPage({
           </p>
         </div>
         <div>
-          <p className="text-black/50 dark:text-white/50">Country</p>
-          <p className="font-medium">{visitor.country ?? "—"}</p>
+          <p className="text-black/50 dark:text-white/50">Location</p>
+          <p className="font-medium">{formatLocation(visitor)}</p>
         </div>
         <div>
           <p className="text-black/50 dark:text-white/50">First touch</p>
@@ -107,6 +108,9 @@ export default async function AdminAnalyticsVisitorPage({
                 <span className="text-black/60 dark:text-white/60">
                   {session.utmSource ?? "Direct"}
                   {session.utmCampaign && ` / ${session.utmCampaign}`}
+                </span>
+                <span className="text-black/60 dark:text-white/60">
+                  {formatLocation(session)}
                 </span>
                 <span className="text-black/60 dark:text-white/60">
                   {formatDuration(session.durationMs)}

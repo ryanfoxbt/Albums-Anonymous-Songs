@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { PlayerProvider } from "@/components/player/PlayerProvider";
 import { NowPlayingBar } from "@/components/player/NowPlayingBar";
 import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
+import { getSiteLogoUrl } from "@/lib/siteSettings";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -56,11 +57,13 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const logoUrl = await getSiteLogoUrl();
+
   return (
     <ClerkProvider>
       <html
@@ -69,7 +72,7 @@ export default function RootLayout({
       >
         <body className="min-h-full flex flex-col">
           <AnalyticsTracker />
-          <PlayerProvider>
+          <PlayerProvider logoUrl={logoUrl}>
             <Header />
             <div className="flex flex-1 flex-col">{children}</div>
             <NowPlayingBar />

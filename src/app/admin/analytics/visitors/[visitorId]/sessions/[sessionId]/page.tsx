@@ -5,6 +5,7 @@ import {
   formatDateTime,
   formatDuration,
   formatListeningTime,
+  formatLocation,
 } from "@/lib/formatAnalytics";
 
 export const dynamic = "force-dynamic";
@@ -57,8 +58,8 @@ export default async function AdminAnalyticsSessionPage({
           </p>
         </div>
         <div>
-          <p className="text-black/50 dark:text-white/50">Country</p>
-          <p className="font-medium">{session.country ?? "—"}</p>
+          <p className="text-black/50 dark:text-white/50">Location</p>
+          <p className="font-medium">{formatLocation(session)}</p>
         </div>
         <div>
           <p className="text-black/50 dark:text-white/50">UTM</p>

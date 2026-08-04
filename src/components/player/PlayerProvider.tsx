@@ -26,7 +26,30 @@ type PlayerContextValue = {
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
-export function PlayerProvider({ children }: { children: React.ReactNode }) {
+function guessImageMimeType(url: string): string {
+  const extension = url.split(".").pop()?.toLowerCase().split("?")[0];
+  switch (extension) {
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "svg":
+      return "image/svg+xml";
+    default:
+      return "image/png";
+  }
+}
+
+export function PlayerProvider({
+  children,
+  logoUrl,
+}: {
+  children: React.ReactNode;
+  logoUrl?: string | null;
+}) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const queueRef = useRef<PlayerSong[]>([]);
   const queueIndexRef = useRef(0);
@@ -127,7 +150,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const handleEnded = () => {
+  const playNext = () => {
     const nextIndex = queueIndexRef.current + 1;
     const next = queueRef.current[nextIndex];
     if (next) {
@@ -139,7 +162,69 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const playPrevious = () => {
+    const previousIndex = queueIndexRef.current - 1;
+    const previous = queueRef.current[previousIndex];
+    if (!previous) return;
+    queueIndexRef.current = previousIndex;
+    loadAndPlay(previous);
+  };
+
+  const handleEnded = () => playNext();
+
   const dismissStreamLimit = () => setStreamLimitReached(false);
+
+  // Car head units, CarPlay/Android Auto, and lock screens all read the
+  // Media Session API for "Now Playing" title/artist/artwork — without it
+  // they fall back to a generic placeholder icon and the page title.
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator)) {
+      return;
+    }
+
+    if (!currentSong) {
+      navigator.mediaSession.metadata = null;
+      return;
+    }
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentSong.title,
+      artist: currentSong.artistName,
+      album: "Albums Anonymous",
+      artwork: logoUrl
+        ? [96, 192, 512].map((size) => ({
+            src: logoUrl,
+            sizes: `${size}x${size}`,
+            type: guessImageMimeType(logoUrl),
+          }))
+        : [],
+    });
+  }, [currentSong, logoUrl]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator)) {
+      return;
+    }
+    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator)) {
+      return;
+    }
+    const audio = audioRef.current;
+    navigator.mediaSession.setActionHandler("play", () => audio?.play());
+    navigator.mediaSession.setActionHandler("pause", () => audio?.pause());
+    navigator.mediaSession.setActionHandler("previoustrack", playPrevious);
+    navigator.mediaSession.setActionHandler("nexttrack", playNext);
+    return () => {
+      navigator.mediaSession.setActionHandler("play", null);
+      navigator.mediaSession.setActionHandler("pause", null);
+      navigator.mediaSession.setActionHandler("previoustrack", null);
+      navigator.mediaSession.setActionHandler("nexttrack", null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <PlayerContext.Provider

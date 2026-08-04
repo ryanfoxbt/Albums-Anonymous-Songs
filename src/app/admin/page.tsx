@@ -5,13 +5,18 @@ import { getOverviewStats } from "@/lib/analyticsQueries";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
+  const now = new Date();
+  const last30Days = {
+    from: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+    to: now,
+  };
   const [songCount, artistCount, genreCount, categoryCount, stats] =
     await Promise.all([
       prisma.song.count(),
       prisma.artist.count(),
       prisma.genre.count(),
       prisma.category.count(),
-      getOverviewStats(30),
+      getOverviewStats(last30Days),
     ]);
 
   const cards = [

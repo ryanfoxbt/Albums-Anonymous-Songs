@@ -40,6 +40,15 @@ model SocialLink {
   createdAt DateTime @default(now())
 }
 
+// Singleton row (id always "default") holding site-wide branding, e.g.
+// the logo used as MediaSession artwork on the car/lock-screen "Now
+// Playing" display.
+model SiteSetting {
+  id        String   @id @default("default")
+  logoUrl   String?
+  updatedAt DateTime @updatedAt
+}
+
 model Song {
   id              String   @id @default(cuid())
   title           String
@@ -120,6 +129,8 @@ model Visitor {
   firstReferrer    String?
   firstLandingPath String?
   country          String?
+  region           String?
+  city             String?
 
   sessions          VisitSession[]
   songPlays         SongPlayEvent[]
@@ -147,9 +158,12 @@ model VisitSession {
   referrer    String?
   landingPath String?
   country     String?
+  region      String?
+  city        String?
   deviceType  String?
   browser     String?
   os          String?
+  entryChoice String?
 
   pageViews         PageView[]
   songPlays         SongPlayEvent[]

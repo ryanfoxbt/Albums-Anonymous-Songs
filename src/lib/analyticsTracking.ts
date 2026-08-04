@@ -74,8 +74,30 @@ export function parseUserAgent(userAgent: string | null): ParsedUserAgent {
   return { deviceType, browser, os };
 }
 
-export function getGeoCountry(headers: Headers): string | null {
-  return headers.get("x-vercel-ip-country");
+export type GeoLocation = {
+  country: string | null;
+  region: string | null;
+  city: string | null;
+};
+
+// Vercel's edge network sets these on every request; region is the
+// ISO 3166-2 subdivision code (e.g. "CA" for California) and city is
+// URL-encoded (e.g. "San%20Francisco"), so it needs decoding.
+export function getGeoLocation(headers: Headers): GeoLocation {
+  const country = headers.get("x-vercel-ip-country");
+  const region = headers.get("x-vercel-ip-country-region");
+  const rawCity = headers.get("x-vercel-ip-city");
+
+  let city: string | null = null;
+  if (rawCity) {
+    try {
+      city = decodeURIComponent(rawCity);
+    } catch {
+      city = rawCity;
+    }
+  }
+
+  return { country, region, city };
 }
 
 /**
@@ -91,9 +113,9 @@ export async function ensureVisitorAndSession(params: {
   utm: UtmParams;
   referrer: string | null;
   userAgent: string | null;
-  country: string | null;
+  geo: GeoLocation;
 }): Promise<{ isNewSession: boolean }> {
-  const { visitorId, sessionId, pathname, utm, referrer, userAgent, country } =
+  const { visitorId, sessionId, pathname, utm, referrer, userAgent, geo } =
     params;
 
   const existingVisitor = await prisma.visitor.findUnique({
@@ -111,7 +133,9 @@ export async function ensureVisitorAndSession(params: {
         firstUtmContent: utm.utmContent,
         firstReferrer: referrer,
         firstLandingPath: pathname,
-        country,
+        country: geo.country,
+        region: geo.region,
+        city: geo.city,
       },
     });
   } else {
@@ -150,7 +174,9 @@ export async function ensureVisitorAndSession(params: {
       utmContent: utm.utmContent,
       referrer,
       landingPath: pathname,
-      country,
+      country: geo.country,
+      region: geo.region,
+      city: geo.city,
       deviceType,
       browser,
       os,

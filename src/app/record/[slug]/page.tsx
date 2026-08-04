@@ -21,11 +21,16 @@ export async function generateMetadata({
     return { title: "Record Not Found" };
   }
   const songCount = record.songIds.length;
+  const title = `Custom Record: ${songCount} Funny Song${songCount === 1 ? "" : "s"}`;
+  const description = `A custom playlist of ${songCount} funny song${
+    songCount === 1 ? "" : "s"
+  } from Albums Anonymous — funny original songs plus the comedy podcast where they're born. Pressed and shared.`;
+
   return {
-    title: `Custom Record: ${songCount} Funny Song${songCount === 1 ? "" : "s"}`,
-    description: `A custom playlist of ${songCount} funny song${
-      songCount === 1 ? "" : "s"
-    } from Albums Anonymous, pressed and shared.`,
+    title,
+    description,
+    openGraph: { title, description },
+    twitter: { title, description },
   };
 }
 

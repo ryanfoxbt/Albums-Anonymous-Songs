@@ -7,10 +7,15 @@ import { getArtists, getCategories, getGenres, getSongs } from "@/lib/songs";
 
 export const dynamic = "force-dynamic";
 
+const title = "Listen to Funny Parody Songs";
+const description =
+  "Stream free funny original songs and parody tracks from Albums Anonymous — plus the comedy podcast where they're born. New songs weekly, no login required.";
+
 export const metadata: Metadata = {
-  title: "Listen to Funny Parody Songs",
-  description:
-    "Stream free funny original songs and parody tracks from Albums Anonymous — new songs weekly, no login required.",
+  title,
+  description,
+  openGraph: { title, description },
+  twitter: { title, description },
 };
 
 export default async function ListenPage() {

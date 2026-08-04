@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { PODCAST_PLATFORMS } from "@/lib/podcastPlatforms";
 
+const title = "Watch the Podcast";
+const description =
+  "Watch or listen to Albums Anonymous, the comedy music podcast, on YouTube, Spotify, or Apple Podcasts — plus the funny original songs it's spawned.";
+
 export const metadata = {
-  title: "Watch the Podcast",
-  description:
-    "Watch or listen to Albums Anonymous, the comedy music podcast, on YouTube, Spotify, or Apple Podcasts.",
+  title,
+  description,
+  openGraph: { title, description },
+  twitter: { title, description },
 };
 
 const podcastJsonLd = {

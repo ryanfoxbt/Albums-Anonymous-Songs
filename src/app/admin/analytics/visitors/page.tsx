@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { AnalyticsTabs } from "@/components/admin/AnalyticsTabs";
 import { getVisitorList } from "@/lib/analyticsQueries";
-import { formatDateTime, formatListeningTime } from "@/lib/formatAnalytics";
+import {
+  formatDateTime,
+  formatListeningTime,
+  formatLocation,
+} from "@/lib/formatAnalytics";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +33,7 @@ export default async function AdminAnalyticsVisitorsPage() {
               <th className="py-2 pr-3 font-medium">Pageviews</th>
               <th className="py-2 pr-3 font-medium">Song plays</th>
               <th className="py-2 pr-3 font-medium">Listening time</th>
-              <th className="py-2 pr-3 font-medium">Country</th>
+              <th className="py-2 pr-3 font-medium">Location</th>
             </tr>
           </thead>
           <tbody>
@@ -64,7 +68,9 @@ export default async function AdminAnalyticsVisitorsPage() {
                 <td className="py-2 pr-3 whitespace-nowrap">
                   {formatListeningTime(visitor.listeningSeconds)}
                 </td>
-                <td className="py-2 pr-3">{visitor.country ?? "—"}</td>
+                <td className="py-2 pr-3 whitespace-nowrap">
+                  {formatLocation(visitor)}
+                </td>
               </tr>
             ))}
           </tbody>

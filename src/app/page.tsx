@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { EntryChoiceLink } from "@/components/landing/EntryChoiceLink";
 import { HeroTitleAnimation } from "@/components/landing/HeroTitleAnimation";
 import { PODCAST_PLATFORMS } from "@/lib/podcastPlatforms";
 import { prisma } from "@/lib/prisma";
@@ -50,18 +50,20 @@ export default async function Home() {
         </div>
 
         <div className="flex w-full flex-col gap-4">
-          <Link
+          <EntryChoiceLink
             href="/listen"
+            choice="listen"
             className="rounded-2xl bg-black px-6 py-5 text-base font-semibold text-white shadow-sm transition hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
           >
             Listen to the Songs
-          </Link>
-          <Link
+          </EntryChoiceLink>
+          <EntryChoiceLink
             href="/watch"
+            choice="watch"
             className="rounded-2xl border border-black/15 px-6 py-5 text-base font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
           >
             Watch the Podcast
-          </Link>
+          </EntryChoiceLink>
         </div>
       </div>
     </div>

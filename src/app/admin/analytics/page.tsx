@@ -5,36 +5,46 @@ import {
   getOverviewStats,
   getRecentSubscribers,
   getSongLeaderboard,
+  getTopLocations,
   getTopPages,
   getTopSources,
 } from "@/lib/analyticsQueries";
+import { RANGE_PRESETS, resolveDateRange } from "@/lib/dateRange";
 import {
+  formatDateRange,
   formatDateTime,
   formatDuration,
   formatListeningTime,
+  formatLocation,
   formatPercent,
 } from "@/lib/formatAnalytics";
 
-const RANGE_OPTIONS = [7, 30, 90] as const;
-
 export const dynamic = "force-dynamic";
+
+function toDateInputValue(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
 
 export default async function AdminAnalyticsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ days?: string }>;
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
 }) {
-  const { days: daysParam } = await searchParams;
-  const days = RANGE_OPTIONS.includes(Number(daysParam) as (typeof RANGE_OPTIONS)[number])
-    ? Number(daysParam)
-    : 30;
+  const { range: rangeParam, from: fromParam, to: toParam } =
+    await searchParams;
+  const range = resolveDateRange({
+    range: rangeParam,
+    from: fromParam,
+    to: toParam,
+  });
 
-  const [stats, topPages, topSources, topSongs, recentSubscribers] =
+  const [stats, topPages, topSources, topSongs, topLocations, recentSubscribers] =
     await Promise.all([
-      getOverviewStats(days),
-      getTopPages(days, 8),
-      getTopSources(days, 8),
-      getSongLeaderboard(days, 5),
+      getOverviewStats(range),
+      getTopPages(range, 8),
+      getTopSources(range, 8),
+      getSongLeaderboard(range, 5),
+      getTopLocations(range, 8),
       getRecentSubscribers(5),
     ]);
 
@@ -42,24 +52,58 @@ export default async function AdminAnalyticsPage({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-        <div className="flex gap-2 text-sm">
-          {RANGE_OPTIONS.map((option) => (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          {RANGE_PRESETS.map((option) => (
             <Link
-              key={option}
-              href={`/admin/analytics?days=${option}`}
+              key={option.value}
+              href={`/admin/analytics?range=${option.value}`}
               className={`rounded-full px-3 py-1.5 ${
-                option === days
+                option.value === range.preset
                   ? "bg-foreground text-background"
                   : "border border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
               }`}
             >
-              {option}d
+              {option.label}
             </Link>
           ))}
+          <form
+            method="GET"
+            action="/admin/analytics"
+            className={`flex items-center gap-1.5 rounded-full px-2 py-1 ${
+              range.preset === "custom"
+                ? "bg-foreground/5 dark:bg-white/5"
+                : ""
+            }`}
+          >
+            <input type="hidden" name="range" value="custom" />
+            <input
+              type="date"
+              name="from"
+              defaultValue={fromParam ?? toDateInputValue(range.from)}
+              className="rounded-full border border-black/15 bg-transparent px-2 py-1 text-xs dark:border-white/20"
+            />
+            <span className="text-black/40 dark:text-white/40">–</span>
+            <input
+              type="date"
+              name="to"
+              defaultValue={toParam ?? toDateInputValue(range.to)}
+              className="rounded-full border border-black/15 bg-transparent px-2 py-1 text-xs dark:border-white/20"
+            />
+            <button
+              type="submit"
+              className="rounded-full border border-black/15 px-3 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            >
+              Go
+            </button>
+          </form>
         </div>
       </div>
 
       <AnalyticsTabs active="/admin/analytics" />
+
+      <p className="text-xs text-black/50 dark:text-white/50">
+        {formatDateRange(range)}
+      </p>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Visitors" value={String(stats.uniqueVisitors)} />
@@ -136,6 +180,40 @@ export default async function AdminAnalyticsPage({
               </li>
             ))}
             {topSources.length === 0 && (
+              <p className="text-sm text-black/50 dark:text-white/50">
+                No sessions yet.
+              </p>
+            )}
+          </ul>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+              Top locations
+            </h2>
+            <Link
+              href="/admin/analytics/visitors"
+              className="text-xs text-black/50 underline hover:text-black dark:text-white/50 dark:hover:text-white"
+            >
+              View visitors
+            </Link>
+          </div>
+          <ul className="flex flex-col gap-1">
+            {topLocations.map((location, index) => (
+              <li
+                key={`${location.city}-${location.region}-${location.country}-${index}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10"
+              >
+                <span className="min-w-0 truncate">
+                  {formatLocation(location)}
+                </span>
+                <span className="shrink-0 text-black/60 dark:text-white/60">
+                  {location.sessions} sessions
+                </span>
+              </li>
+            ))}
+            {topLocations.length === 0 && (
               <p className="text-sm text-black/50 dark:text-white/50">
                 No sessions yet.
               </p>

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { PlayerProvider } from "@/components/player/PlayerProvider";
 import { NowPlayingBar } from "@/components/player/NowPlayingBar";
@@ -75,6 +76,7 @@ export default async function RootLayout({
           <PlayerProvider logoUrl={logoUrl}>
             <Header />
             <div className="flex flex-1 flex-col">{children}</div>
+            <Footer />
             <NowPlayingBar />
           </PlayerProvider>
         </body>

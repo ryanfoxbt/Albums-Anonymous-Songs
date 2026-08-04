@@ -39,54 +39,63 @@ export function SubscribeForm() {
 
   if (status === "success") {
     return (
-      <p className="text-xs text-black/50 dark:text-white/50">
-        You&apos;re in — we&apos;ll email you when new songs drop.
-      </p>
+      <div className="rounded-2xl border border-[#F760D6]/30 bg-[#F760D6]/5 p-4 sm:p-5">
+        <p className="text-sm font-medium">
+          You&apos;re in — we&apos;ll email you when new songs drop. 🎉
+        </p>
+      </div>
     );
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-wrap items-center gap-2"
-    >
-      <label
-        htmlFor="subscribe-email"
-        className="text-xs text-black/50 dark:text-white/50"
-      >
-        New songs weekly, straight to your inbox:
-      </label>
-      <input
-        id="subscribe-email"
-        type="email"
-        required
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-        placeholder="you@example.com"
-        className="rounded-full border border-black/10 bg-transparent px-3 py-1 text-xs text-black/70 placeholder:text-black/30 dark:border-white/10 dark:text-white/70 dark:placeholder:text-white/30"
-      />
-      <input
-        type="text"
-        value={company}
-        onChange={(event) => setCompany(event.target.value)}
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-        className="hidden"
-      />
-      <button
-        type="submit"
-        disabled={status === "loading"}
-        className="text-xs font-medium text-black/50 underline hover:text-black disabled:opacity-60 dark:text-white/50 dark:hover:text-white"
-      >
-        {status === "loading" ? "Subscribing..." : "Subscribe"}
-      </button>
+    <div className="rounded-2xl border border-black/10 bg-black/[0.03] p-4 sm:p-5 dark:border-white/10 dark:bg-white/5">
+      <p className="text-base font-semibold tracking-tight">
+        Get new songs first
+      </p>
+      <p className="mt-1 text-sm text-black/60 dark:text-white/60">
+        New parody songs weekly, straight to your inbox. No spam, unsubscribe
+        anytime.
+      </p>
 
-      {status === "error" && (
-        <p className="w-full text-xs text-red-600 dark:text-red-400">
-          {error}
-        </p>
-      )}
-    </form>
+      <form
+        onSubmit={handleSubmit}
+        className="mt-3 flex flex-wrap items-center gap-2"
+      >
+        <label htmlFor="subscribe-email" className="sr-only">
+          Email address
+        </label>
+        <input
+          id="subscribe-email"
+          type="email"
+          required
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="you@example.com"
+          className="min-w-0 flex-1 rounded-full border border-black/15 bg-background px-4 py-2 text-sm placeholder:text-black/30 dark:border-white/20 dark:placeholder:text-white/30"
+        />
+        <input
+          type="text"
+          value={company}
+          onChange={(event) => setCompany(event.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          className="hidden"
+        />
+        <button
+          type="submit"
+          disabled={status === "loading"}
+          className="shrink-0 rounded-full bg-[#F760D6] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+        >
+          {status === "loading" ? "Subscribing..." : "Subscribe"}
+        </button>
+
+        {status === "error" && (
+          <p className="w-full text-xs text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        )}
+      </form>
+    </div>
   );
 }

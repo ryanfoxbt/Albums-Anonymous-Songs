@@ -20,22 +20,22 @@ export default function AboutPage() {
 
         <div className="flex flex-col gap-4 text-sm leading-relaxed text-black/80 dark:text-white/80">
           <p>
-            Albums Anonymous is part album club, part unhinged comedy radio
-            show, and entirely what happens when a deuce of dads sync their
-            love for music, their midlife crises, and reaction-worthy
-            comedy songs.
+            Albums Anonymous is vinyl appreciation meets DJ&apos;d
+            Defecation. I mean self deprecation.
           </p>
           <p>
-            Every week, we break down one of our all-time favorite records
-            from front to back. But we don&apos;t just sit around stroking
-            our balls over vinyl pressings—we spin the tracks, dive into
-            the chaos behind the making of the record, and roll out a
-            wildly unpredictable lineup of songs that may or may not have
-            been inspired by the album of the week.
+            Hosted by regular girl dads Troy Runsten and Ryan Fox. They
+            overshare everything — including how regular they are.
           </p>
-          <p>Is the connection sometimes a stretch? Absolutely.</p>
-          <p>Is the music great? Always.</p>
-          <p>Is this your typical, dry music analysis podcast? Not even close.</p>
+          <p>
+            Unlike your wife&apos;s book club, they always listen to the
+            album before the show.
+          </p>
+          <p>
+            We have guests like Steve, Mitchell, and Michael. We have not
+            asked them how regular they are yet, but we would.
+          </p>
+          <p>Listen to it while you do yard work or dishes dude.</p>
         </div>
 
         <div className="mt-2 flex flex-wrap gap-3">

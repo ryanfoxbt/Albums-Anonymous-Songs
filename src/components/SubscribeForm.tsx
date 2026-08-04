@@ -53,8 +53,8 @@ export function SubscribeForm() {
         Get new songs first
       </p>
       <p className="mt-1 text-sm text-black/60 dark:text-white/60">
-        New parody songs weekly, straight to your inbox. No spam, unsubscribe
-        anytime.
+        Self Deprecation Audio Weekly. We&apos;re lazy, so one email per
+        month.
       </p>
 
       <form

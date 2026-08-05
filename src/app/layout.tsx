@@ -75,7 +75,11 @@ export default async function RootLayout({
         <body className="min-h-full flex flex-col">
           <AnalyticsTracker />
           {announcement.enabled && announcement.text && (
-            <AnnouncementBanner text={announcement.text} />
+            <AnnouncementBanner
+              text={announcement.text}
+              linkUrl={announcement.linkUrl}
+              linkText={announcement.linkText}
+            />
           )}
           <PlayerProvider logoUrl={logoUrl}>
             <Header logoUrl={logoUrl} />

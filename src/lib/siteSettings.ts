@@ -21,16 +21,25 @@ export async function setSiteLogoUrl(logoUrl: string | null): Promise<void> {
 export type Announcement = {
   text: string | null;
   enabled: boolean;
+  linkUrl: string | null;
+  linkText: string | null;
 };
 
 export async function getAnnouncement(): Promise<Announcement> {
   const setting = await prisma.siteSetting.findUnique({
     where: { id: SITE_SETTING_ID },
-    select: { announcementText: true, announcementEnabled: true },
+    select: {
+      announcementText: true,
+      announcementEnabled: true,
+      announcementLinkUrl: true,
+      announcementLinkText: true,
+    },
   });
   return {
     text: setting?.announcementText ?? null,
     enabled: setting?.announcementEnabled ?? false,
+    linkUrl: setting?.announcementLinkUrl ?? null,
+    linkText: setting?.announcementLinkText ?? null,
   };
 }
 
@@ -41,10 +50,14 @@ export async function setAnnouncement(announcement: Announcement): Promise<void>
       id: SITE_SETTING_ID,
       announcementText: announcement.text,
       announcementEnabled: announcement.enabled,
+      announcementLinkUrl: announcement.linkUrl,
+      announcementLinkText: announcement.linkText,
     },
     update: {
       announcementText: announcement.text,
       announcementEnabled: announcement.enabled,
+      announcementLinkUrl: announcement.linkUrl,
+      announcementLinkText: announcement.linkText,
     },
   });
 }

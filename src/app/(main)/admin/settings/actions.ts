@@ -48,11 +48,23 @@ export async function removeSiteLogo() {
   redirect("/admin/settings");
 }
 
+function isValidAnnouncementLink(url: string): boolean {
+  if (url.startsWith("/")) return true;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export async function updateAnnouncement(formData: FormData) {
   await requireAdmin();
 
   const text = String(formData.get("text") ?? "").trim();
   const enabled = formData.get("enabled") === "on";
+  const linkUrl = String(formData.get("linkUrl") ?? "").trim();
+  const linkText = String(formData.get("linkText") ?? "").trim();
 
   if (enabled && !text) {
     redirect(
@@ -60,7 +72,18 @@ export async function updateAnnouncement(formData: FormData) {
     );
   }
 
-  await setAnnouncement({ text: text || null, enabled });
+  if (linkUrl && !isValidAnnouncementLink(linkUrl)) {
+    redirect(
+      `/admin/settings?error=${encodeURIComponent("Link URL must be a full https:// link or a path starting with /.")}`,
+    );
+  }
+
+  await setAnnouncement({
+    text: text || null,
+    enabled,
+    linkUrl: linkUrl || null,
+    linkText: linkUrl ? linkText || null : null,
+  });
 
   revalidatePath("/admin/settings");
   revalidatePath("/", "layout");

@@ -72,9 +72,31 @@ export default async function AdminSettingsPage({
             name="text"
             defaultValue={announcement.text ?? ""}
             rows={2}
-            placeholder="e.g. New episode out now — give it a listen!"
+            placeholder="e.g. New Smelly Release! Smellevator Dropped a Double Deuce!"
             className="w-full resize-none rounded-lg border border-black/15 bg-transparent px-3 py-2 text-sm placeholder:text-black/40 dark:border-white/20 dark:placeholder:text-white/40"
           />
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="text"
+              name="linkText"
+              defaultValue={announcement.linkText ?? ""}
+              placeholder="Link label (e.g. Listen here.)"
+              className="w-full rounded-lg border border-black/15 bg-transparent px-3 py-2 text-sm placeholder:text-black/40 dark:border-white/20 dark:placeholder:text-white/40 sm:w-1/3"
+            />
+            <input
+              type="text"
+              name="linkUrl"
+              defaultValue={announcement.linkUrl ?? ""}
+              placeholder="Link URL (e.g. /record/smellevator)"
+              className="w-full rounded-lg border border-black/15 bg-transparent px-3 py-2 text-sm placeholder:text-black/40 dark:border-white/20 dark:placeholder:text-white/40"
+            />
+          </div>
+          <p className="text-xs text-black/40 dark:text-white/40">
+            Optional. The label is appended to the end of the message as a
+            clickable link — leave it blank to just show the URL.
+          </p>
+
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"

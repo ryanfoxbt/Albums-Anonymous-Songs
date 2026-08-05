@@ -48,6 +48,8 @@ model SiteSetting {
   logoUrl             String?
   announcementText    String?
   announcementEnabled Boolean  @default(false)
+  announcementLinkUrl  String?
+  announcementLinkText String?
   updatedAt           DateTime @updatedAt
 }
 

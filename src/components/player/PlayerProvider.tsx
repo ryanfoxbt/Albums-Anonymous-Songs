@@ -174,6 +174,78 @@ export function PlayerProvider({
 
   const dismissStreamLimit = () => setStreamLimitReached(false);
 
+  const updatePositionState = () => {
+    const audio = audioRef.current;
+    if (
+      !audio ||
+      typeof window === "undefined" ||
+      !("mediaSession" in navigator) ||
+      !navigator.mediaSession.setPositionState ||
+      !Number.isFinite(audio.duration) ||
+      audio.duration <= 0
+    ) {
+      return;
+    }
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: audio.duration,
+        playbackRate: audio.playbackRate,
+        position: audio.currentTime,
+      });
+    } catch {
+      // Stale/invalid state (e.g. mid-seek) — safe to ignore.
+    }
+  };
+
+  // Keeps the screen awake while a song is actively playing. This only
+  // helps the screen-on case (phone paused in a cupholder, browsing while
+  // listening) — it can't prevent iOS Safari from suspending a backgrounded
+  // tab once the screen locks or the audio is paused, which is a platform
+  // limitation no website JS can override.
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("wakeLock" in navigator)) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const acquire = async () => {
+      try {
+        const lock = await navigator.wakeLock.request("screen");
+        if (cancelled) {
+          lock.release().catch(() => {});
+          return;
+        }
+        wakeLockRef.current = lock;
+        lock.addEventListener("release", () => {
+          if (wakeLockRef.current === lock) wakeLockRef.current = null;
+        });
+      } catch {
+        // Denied (e.g. low battery, backgrounded tab) — non-fatal.
+      }
+    };
+
+    if (isPlaying) {
+      acquire();
+    } else if (wakeLockRef.current) {
+      wakeLockRef.current.release().catch(() => {});
+      wakeLockRef.current = null;
+    }
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && isPlaying && !wakeLockRef.current) {
+        acquire();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [isPlaying]);
+
   // Car head units, CarPlay/Android Auto, and lock screens all read the
   // Media Session API for "Now Playing" title/artist/artwork — without it
   // they fall back to a generic placeholder icon and the page title.
@@ -217,11 +289,17 @@ export function PlayerProvider({
     navigator.mediaSession.setActionHandler("pause", () => audio?.pause());
     navigator.mediaSession.setActionHandler("previoustrack", playPrevious);
     navigator.mediaSession.setActionHandler("nexttrack", playNext);
+    navigator.mediaSession.setActionHandler("stop", () => {
+      if (!audio) return;
+      audio.pause();
+      audio.currentTime = 0;
+    });
     return () => {
       navigator.mediaSession.setActionHandler("play", null);
       navigator.mediaSession.setActionHandler("pause", null);
       navigator.mediaSession.setActionHandler("previoustrack", null);
       navigator.mediaSession.setActionHandler("nexttrack", null);
+      navigator.mediaSession.setActionHandler("stop", null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -245,6 +323,8 @@ export function PlayerProvider({
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={handleEnded}
+        onLoadedMetadata={updatePositionState}
+        onTimeUpdate={updatePositionState}
       />
     </PlayerContext.Provider>
   );

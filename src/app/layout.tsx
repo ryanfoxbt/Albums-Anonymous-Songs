@@ -74,7 +74,7 @@ export default async function RootLayout({
         <body className="min-h-full flex flex-col">
           <AnalyticsTracker />
           <PlayerProvider logoUrl={logoUrl}>
-            <Header />
+            <Header logoUrl={logoUrl} />
             <div className="flex flex-1 flex-col">{children}</div>
             <Footer />
             <NowPlayingBar />

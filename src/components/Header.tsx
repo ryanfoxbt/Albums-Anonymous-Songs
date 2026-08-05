@@ -1,13 +1,21 @@
 import Link from "next/link";
 
-export function Header() {
+export function Header({ logoUrl }: { logoUrl?: string | null }) {
   return (
     <header className="sticky top-0 z-40 border-b border-black/10 bg-background/95 backdrop-blur dark:border-white/10">
       <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 sm:px-6">
         <Link
           href="/"
-          className="shrink-0 text-sm font-semibold tracking-tight"
+          className="flex shrink-0 items-center gap-2 text-sm font-semibold tracking-tight"
         >
+          {logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt=""
+              className="h-7 w-7 rounded-md object-cover"
+            />
+          )}
           Albums Anonymous
         </Link>
 

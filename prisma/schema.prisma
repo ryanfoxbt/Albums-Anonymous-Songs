@@ -44,9 +44,11 @@ model SocialLink {
 // the logo used as MediaSession artwork on the car/lock-screen "Now
 // Playing" display.
 model SiteSetting {
-  id        String   @id @default("default")
-  logoUrl   String?
-  updatedAt DateTime @updatedAt
+  id                  String   @id @default("default")
+  logoUrl             String?
+  announcementText    String?
+  announcementEnabled Boolean  @default(false)
+  updatedAt           DateTime @updatedAt
 }
 
 model Song {

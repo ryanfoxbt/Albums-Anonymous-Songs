@@ -1,13 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Footer } from "@/components/Footer";
+import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { Header } from "@/components/Header";
-import { HideOnHome } from "@/components/HideOnHome";
 import { PlayerProvider } from "@/components/player/PlayerProvider";
 import { NowPlayingBar } from "@/components/player/NowPlayingBar";
 import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
-import { getSiteLogoUrl } from "@/lib/siteSettings";
+import { getAnnouncement, getSiteLogoUrl } from "@/lib/siteSettings";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -65,6 +64,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const logoUrl = await getSiteLogoUrl();
+  const announcement = await getAnnouncement();
 
   return (
     <ClerkProvider>
@@ -74,12 +74,12 @@ export default async function RootLayout({
       >
         <body className="min-h-full flex flex-col">
           <AnalyticsTracker />
+          {announcement.enabled && announcement.text && (
+            <AnnouncementBanner text={announcement.text} />
+          )}
           <PlayerProvider logoUrl={logoUrl}>
             <Header logoUrl={logoUrl} />
             <div className="flex flex-1 flex-col">{children}</div>
-            <HideOnHome>
-              <Footer />
-            </HideOnHome>
             <NowPlayingBar />
           </PlayerProvider>
         </body>

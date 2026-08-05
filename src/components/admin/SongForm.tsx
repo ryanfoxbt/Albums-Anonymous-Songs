@@ -2,9 +2,9 @@
 
 import { upload } from "@vercel/blob/client";
 import { useCallback, useState } from "react";
-import { quickCreateArtist } from "@/app/admin/artists/actions";
-import { quickCreateCategory } from "@/app/admin/categories/actions";
-import { quickCreateGenre } from "@/app/admin/genres/actions";
+import { quickCreateArtist } from "@/app/(main)/admin/artists/actions";
+import { quickCreateCategory } from "@/app/(main)/admin/categories/actions";
+import { quickCreateGenre } from "@/app/(main)/admin/genres/actions";
 import type { ArtistSummary, CategorySummary, GenreSummary } from "@/lib/songs";
 import { EntityPicker } from "./EntityPicker";
 

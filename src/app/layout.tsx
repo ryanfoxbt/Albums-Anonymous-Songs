@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { HideOnHome } from "@/components/HideOnHome";
 import { PlayerProvider } from "@/components/player/PlayerProvider";
 import { NowPlayingBar } from "@/components/player/NowPlayingBar";
 import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
@@ -76,7 +77,9 @@ export default async function RootLayout({
           <PlayerProvider logoUrl={logoUrl}>
             <Header logoUrl={logoUrl} />
             <div className="flex flex-1 flex-col">{children}</div>
-            <Footer />
+            <HideOnHome>
+              <Footer />
+            </HideOnHome>
             <NowPlayingBar />
           </PlayerProvider>
         </body>

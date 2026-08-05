@@ -6,20 +6,39 @@ import { trackAnnouncementClick } from "@/lib/analyticsClient";
 
 const DISMISSED_KEY = "aa_announcement_dismissed";
 
+function extractPath(url: string): string | null {
+  if (url.startsWith("/")) return url.split(/[?#]/)[0];
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return null;
+  }
+}
+
 export function AnnouncementBanner({
   text,
   linkUrl,
   linkText,
   linkStyle = "link",
+  hideOnHome = false,
 }: {
   text: string;
   linkUrl?: string | null;
   linkText?: string | null;
   linkStyle?: "link" | "button";
+  hideOnHome?: boolean;
 }) {
   const pathname = usePathname();
   const dismissKey = `${text}|${linkUrl ?? ""}|${linkText ?? ""}|${linkStyle}`;
+
+  // Default to visible on the server and on the very first client render
+  // (before we can trust the current route) — mirrors the localStorage
+  // dismiss check below, which has the same brief-flash trade-off. Never
+  // decide visibility from pathname during the initial render: that would
+  // get baked into statically prerendered HTML incorrectly, the same bug
+  // that previously kept the footer showing on the home page.
   const [dismissed, setDismissed] = useState(false);
+  const [hiddenForRoute, setHiddenForRoute] = useState(false);
 
   useEffect(() => {
     if (window.localStorage.getItem(DISMISSED_KEY) === dismissKey) {
@@ -27,7 +46,14 @@ export function AnnouncementBanner({
     }
   }, [dismissKey]);
 
-  if (dismissed) return null;
+  useEffect(() => {
+    const isHome = pathname === "/";
+    const linkPath = linkUrl ? extractPath(linkUrl) : null;
+    const onLinkPage = linkPath != null && pathname === linkPath;
+    setHiddenForRoute((isHome && hideOnHome) || onLinkPage);
+  }, [pathname, linkUrl, hideOnHome]);
+
+  if (dismissed || hiddenForRoute) return null;
 
   const handleLinkClick = () => {
     if (linkUrl) trackAnnouncementClick(linkUrl, text, pathname ?? "/");

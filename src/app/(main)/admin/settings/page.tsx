@@ -126,6 +126,21 @@ export default async function AdminSettingsPage({
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
+              name="hideOnHome"
+              defaultChecked={announcement.hideOnHome}
+              className="h-4 w-4 rounded border-black/30 dark:border-white/30"
+            />
+            Hide on the home page
+          </label>
+          <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
+            The banner is also automatically hidden on the link&apos;s own
+            page — no point sending someone to a page they&apos;re already
+            on.
+          </p>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
               name="enabled"
               defaultChecked={announcement.enabled}
               className="h-4 w-4 rounded border-black/30 dark:border-white/30"

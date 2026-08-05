@@ -26,6 +26,7 @@ export type Announcement = {
   linkUrl: string | null;
   linkText: string | null;
   linkStyle: AnnouncementLinkStyle;
+  hideOnHome: boolean;
 };
 
 export async function getAnnouncement(): Promise<Announcement> {
@@ -37,6 +38,7 @@ export async function getAnnouncement(): Promise<Announcement> {
       announcementLinkUrl: true,
       announcementLinkText: true,
       announcementLinkStyle: true,
+      announcementHideOnHome: true,
     },
   });
   return {
@@ -45,6 +47,7 @@ export async function getAnnouncement(): Promise<Announcement> {
     linkUrl: setting?.announcementLinkUrl ?? null,
     linkText: setting?.announcementLinkText ?? null,
     linkStyle: setting?.announcementLinkStyle === "button" ? "button" : "link",
+    hideOnHome: setting?.announcementHideOnHome ?? false,
   };
 }
 
@@ -58,6 +61,7 @@ export async function setAnnouncement(announcement: Announcement): Promise<void>
       announcementLinkUrl: announcement.linkUrl,
       announcementLinkText: announcement.linkText,
       announcementLinkStyle: announcement.linkStyle,
+      announcementHideOnHome: announcement.hideOnHome,
     },
     update: {
       announcementText: announcement.text,
@@ -65,6 +69,7 @@ export async function setAnnouncement(announcement: Announcement): Promise<void>
       announcementLinkUrl: announcement.linkUrl,
       announcementLinkText: announcement.linkText,
       announcementLinkStyle: announcement.linkStyle,
+      announcementHideOnHome: announcement.hideOnHome,
     },
   });
 }

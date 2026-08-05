@@ -66,6 +66,7 @@ export async function updateAnnouncement(formData: FormData) {
   const linkUrl = String(formData.get("linkUrl") ?? "").trim();
   const linkText = String(formData.get("linkText") ?? "").trim();
   const linkStyle = formData.get("linkStyle") === "button" ? "button" : "link";
+  const hideOnHome = formData.get("hideOnHome") === "on";
 
   if (enabled && !text) {
     redirect(
@@ -85,6 +86,7 @@ export async function updateAnnouncement(formData: FormData) {
     linkUrl: linkUrl || null,
     linkText: linkUrl ? linkText || null : null,
     linkStyle,
+    hideOnHome,
   });
 
   revalidatePath("/admin/settings");

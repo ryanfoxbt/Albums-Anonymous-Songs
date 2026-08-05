@@ -51,6 +51,7 @@ model SiteSetting {
   announcementLinkUrl   String?
   announcementLinkText  String?
   announcementLinkStyle String   @default("link") // "link" | "button"
+  announcementHideOnHome Boolean @default(false)
   updatedAt             DateTime @updatedAt
 }
 

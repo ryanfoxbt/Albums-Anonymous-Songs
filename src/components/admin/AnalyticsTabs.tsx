@@ -6,6 +6,7 @@ const TABS = [
   { href: "/admin/analytics/songs", label: "Songs" },
   { href: "/admin/analytics/entry-choice", label: "Listen vs Watch" },
   { href: "/admin/analytics/utm", label: "UTM Links" },
+  { href: "/admin/analytics/search", label: "Google Search" },
 ] as const;
 
 export function AnalyticsTabs({ active }: { active: (typeof TABS)[number]["href"] }) {

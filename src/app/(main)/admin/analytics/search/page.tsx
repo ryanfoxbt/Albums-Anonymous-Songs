@@ -105,10 +105,11 @@ export default async function AdminAnalyticsSearchPage({
         <div className="rounded-2xl border border-black/10 p-4 text-sm dark:border-white/10">
           <p className="font-semibold">Search Console isn&apos;t connected yet.</p>
           <p className="mt-1 text-black/60 dark:text-white/60">
-            Set the <code>GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL</code> and{" "}
-            <code>GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY</code> environment
-            variables to a service account with Restricted access to the
-            albumsanonymous.com property in Search Console.
+            Set the <code>GOOGLE_SEARCH_CONSOLE_CLIENT_ID</code>,{" "}
+            <code>GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET</code>, and{" "}
+            <code>GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN</code> environment
+            variables for an account with access to the albumsanonymous.com
+            property in Search Console.
           </p>
         </div>
       )}

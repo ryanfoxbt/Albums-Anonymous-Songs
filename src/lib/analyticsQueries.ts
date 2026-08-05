@@ -22,6 +22,7 @@ export type OverviewStats = {
   totalSongPlays: number;
   totalListeningSeconds: number;
   totalPodcastClicks: number;
+  totalAnnouncementClicks: number;
   totalSubscribersAllTime: number;
   newSubscribers: number;
 };
@@ -39,6 +40,7 @@ export async function getOverviewStats(range: DateRange): Promise<OverviewStats>
     totalSongPlays,
     listeningTime,
     totalPodcastClicks,
+    totalAnnouncementClicks,
     totalSubscribersAllTime,
     newSubscribers,
   ] = await Promise.all([
@@ -65,6 +67,7 @@ export async function getOverviewStats(range: DateRange): Promise<OverviewStats>
       _sum: { listenedSeconds: true },
     }),
     prisma.podcastLinkClick.count({ where: { clickedAt: startedAt } }),
+    prisma.announcementLinkClick.count({ where: { clickedAt: startedAt } }),
     prisma.subscriber.count(),
     prisma.subscriber.count({ where: { subscribedAt: startedAt } }),
   ]);
@@ -90,6 +93,7 @@ export async function getOverviewStats(range: DateRange): Promise<OverviewStats>
     totalSongPlays,
     totalListeningSeconds: listeningTime._sum.listenedSeconds ?? 0,
     totalPodcastClicks,
+    totalAnnouncementClicks,
     totalSubscribersAllTime,
     newSubscribers,
   };

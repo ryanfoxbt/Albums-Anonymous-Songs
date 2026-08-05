@@ -65,6 +65,7 @@ export async function updateAnnouncement(formData: FormData) {
   const enabled = formData.get("enabled") === "on";
   const linkUrl = String(formData.get("linkUrl") ?? "").trim();
   const linkText = String(formData.get("linkText") ?? "").trim();
+  const linkStyle = formData.get("linkStyle") === "button" ? "button" : "link";
 
   if (enabled && !text) {
     redirect(
@@ -83,6 +84,7 @@ export async function updateAnnouncement(formData: FormData) {
     enabled,
     linkUrl: linkUrl || null,
     linkText: linkUrl ? linkText || null : null,
+    linkStyle,
   });
 
   revalidatePath("/admin/settings");

@@ -79,6 +79,7 @@ export default async function RootLayout({
               text={announcement.text}
               linkUrl={announcement.linkUrl}
               linkText={announcement.linkText}
+              linkStyle={announcement.linkStyle}
             />
           )}
           <PlayerProvider logoUrl={logoUrl}>

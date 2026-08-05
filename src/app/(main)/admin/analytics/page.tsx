@@ -128,6 +128,10 @@ export default async function AdminAnalyticsPage({
           value={String(stats.totalPodcastClicks)}
         />
         <StatCard
+          label="Banner clicks"
+          value={String(stats.totalAnnouncementClicks)}
+        />
+        <StatCard
           label="Subscribers"
           value={String(stats.totalSubscribersAllTime)}
           sublabel={`+${stats.newSubscribers} in range`}

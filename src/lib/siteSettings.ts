@@ -18,11 +18,14 @@ export async function setSiteLogoUrl(logoUrl: string | null): Promise<void> {
   });
 }
 
+export type AnnouncementLinkStyle = "link" | "button";
+
 export type Announcement = {
   text: string | null;
   enabled: boolean;
   linkUrl: string | null;
   linkText: string | null;
+  linkStyle: AnnouncementLinkStyle;
 };
 
 export async function getAnnouncement(): Promise<Announcement> {
@@ -33,6 +36,7 @@ export async function getAnnouncement(): Promise<Announcement> {
       announcementEnabled: true,
       announcementLinkUrl: true,
       announcementLinkText: true,
+      announcementLinkStyle: true,
     },
   });
   return {
@@ -40,6 +44,7 @@ export async function getAnnouncement(): Promise<Announcement> {
     enabled: setting?.announcementEnabled ?? false,
     linkUrl: setting?.announcementLinkUrl ?? null,
     linkText: setting?.announcementLinkText ?? null,
+    linkStyle: setting?.announcementLinkStyle === "button" ? "button" : "link",
   };
 }
 
@@ -52,12 +57,14 @@ export async function setAnnouncement(announcement: Announcement): Promise<void>
       announcementEnabled: announcement.enabled,
       announcementLinkUrl: announcement.linkUrl,
       announcementLinkText: announcement.linkText,
+      announcementLinkStyle: announcement.linkStyle,
     },
     update: {
       announcementText: announcement.text,
       announcementEnabled: announcement.enabled,
       announcementLinkUrl: announcement.linkUrl,
       announcementLinkText: announcement.linkText,
+      announcementLinkStyle: announcement.linkStyle,
     },
   });
 }

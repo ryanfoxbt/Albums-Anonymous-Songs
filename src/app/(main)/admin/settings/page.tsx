@@ -97,6 +97,32 @@ export default async function AdminSettingsPage({
             clickable link — leave it blank to just show the URL.
           </p>
 
+          <fieldset className="flex items-center gap-4 text-sm">
+            <legend className="mb-1 w-full text-xs font-medium text-black/50 dark:text-white/50">
+              Link style
+            </legend>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                name="linkStyle"
+                value="link"
+                defaultChecked={announcement.linkStyle !== "button"}
+                className="h-4 w-4 border-black/30 dark:border-white/30"
+              />
+              Inline link
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                name="linkStyle"
+                value="button"
+                defaultChecked={announcement.linkStyle === "button"}
+                className="h-4 w-4 border-black/30 dark:border-white/30"
+              />
+              Button
+            </label>
+          </fieldset>
+
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"

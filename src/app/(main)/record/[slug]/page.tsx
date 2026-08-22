@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { EditRecordLink } from "@/components/EditRecordLink";
 import { RecordPlayer } from "@/components/RecordPlayer";
 import { prisma } from "@/lib/prisma";
-import { getSongsByIds } from "@/lib/songs";
+import { getSongs, getSongsByIds } from "@/lib/songs";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +61,10 @@ export default async function RecordPage({
     );
   }
 
-  const songs = await getSongsByIds(record.songIds);
+  const [songs, allSongs] = await Promise.all([
+    getSongsByIds(record.songIds),
+    getSongs({ sortBy: "popularity" }),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
@@ -75,7 +78,7 @@ export default async function RecordPage({
           </p>
         </header>
 
-        <RecordPlayer songs={songs} slug={slug} />
+        <RecordPlayer songs={songs} allSongs={allSongs} slug={slug} />
 
         <div className="flex flex-col items-center gap-2">
           <EditRecordLink slug={slug} />

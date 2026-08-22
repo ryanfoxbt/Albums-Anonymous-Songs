@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { formatArtistCredit } from "@/lib/artistCredit";
+import { buildContinuousQueue } from "@/lib/continuousPlay";
 import { toPlayerSong } from "@/lib/playerSong";
 import type { SongWithRelations } from "@/lib/songs";
 import { usePlayer } from "./player/PlayerProvider";
@@ -32,9 +33,11 @@ function grooveRadius(index: number, total: number): number {
 
 export function RecordPlayer({
   songs,
+  allSongs,
   slug,
 }: {
   songs: SongWithRelations[];
+  allSongs: SongWithRelations[];
   slug: string;
 }) {
   const { currentSong, isPlaying, playQueue, togglePlay } = usePlayer();
@@ -95,7 +98,17 @@ export function RecordPlayer({
       if (!liveDrag) togglePlay();
       return;
     }
-    playQueue(songs.slice(index - 1).map(toPlayerSong), 0);
+
+    const recordIds = new Set(songs.map((s) => s.id));
+    const autoplayTail = buildContinuousQueue(
+      allSongs,
+      songs[songs.length - 1],
+    ).filter((s) => !recordIds.has(s.id));
+
+    playQueue(
+      [...songs.slice(index - 1), ...autoplayTail].map(toPlayerSong),
+      0,
+    );
   };
 
   const handlePointerDown = (event: React.PointerEvent) => {

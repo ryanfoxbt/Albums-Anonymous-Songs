@@ -139,9 +139,10 @@ function fallbackSongs(): SongWithRelations[] {
 }
 
 export async function getSongs(
-  options?: { includeHidden?: boolean },
+  options?: { includeHidden?: boolean; sortBy?: "title" | "popularity" },
 ): Promise<SongWithRelations[]> {
   const includeHidden = options?.includeHidden ?? false;
+  const sortBy = options?.sortBy ?? "title";
 
   if (!process.env.DATABASE_URL) {
     warnFallback("songs");
@@ -149,16 +150,24 @@ export async function getSongs(
     return includeHidden ? songs : songs.filter((song) => !song.hidden);
   }
   try {
-    return await prisma.song.findMany({
+    const songs = await prisma.song.findMany({
       where: includeHidden ? undefined : { hidden: false },
       include: {
         artist: true,
         featuredArtist: true,
         genre: true,
         category: true,
+        _count: { select: { songPlays: true } },
       },
       orderBy: { title: "asc" },
     });
+    if (sortBy === "popularity") {
+      return [...songs].sort((a, b) => {
+        const diff = b._count.songPlays - a._count.songPlays;
+        return diff !== 0 ? diff : a.title.localeCompare(b.title);
+      });
+    }
+    return songs;
   } catch (error) {
     warnFallback("songs", error);
     const songs = fallbackSongs();

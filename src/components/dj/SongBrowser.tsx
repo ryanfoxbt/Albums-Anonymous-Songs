@@ -29,34 +29,36 @@ export function SongBrowser({
   }, [songs, query, filter]);
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="search"
-          placeholder="Search songs…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="min-w-0 flex-1 rounded-full border border-black/15 bg-transparent px-3 py-1.5 text-sm outline-none focus:border-foreground dark:border-white/20"
-        />
-        <div className="flex gap-1 text-xs">
-          {(["all", "listed", "unlisted"] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              className={`rounded-full border px-3 py-1.5 font-medium capitalize ${
-                filter === f
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5 rounded-2xl border border-black/10 p-3 dark:border-white/10">
+      <p className="text-xs font-bold uppercase tracking-wide text-black/40 dark:text-white/40">
+        Tracks
+      </p>
+
+      <input
+        type="search"
+        placeholder="Search songs…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        className="w-full rounded-full border border-black/15 bg-transparent px-3 py-1.5 text-xs outline-none focus:border-foreground dark:border-white/20"
+      />
+      <div className="flex gap-1 text-[10px]">
+        {(["all", "listed", "unlisted"] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFilter(f)}
+            className={`rounded-full border px-2.5 py-1 font-medium capitalize ${
+              filter === f
+                ? "border-foreground bg-foreground text-background"
+                : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            }`}
+          >
+            {f}
+          </button>
+        ))}
       </div>
 
-      <ul className="flex max-h-80 flex-col gap-1 overflow-y-auto">
+      <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
         {filtered.map((song) => (
           <li
             key={song.id}
@@ -65,39 +67,41 @@ export function SongBrowser({
               e.dataTransfer.setData(DJ_DRAG_MIME, song.id);
               e.dataTransfer.effectAllowed = "copy";
             }}
-            className="flex cursor-grab items-center gap-2 rounded-xl border border-transparent p-2 text-sm hover:border-black/10 hover:bg-black/5 active:cursor-grabbing dark:hover:border-white/10 dark:hover:bg-white/10"
+            className="flex cursor-grab flex-col gap-1 rounded-xl border border-transparent p-2 text-xs hover:border-black/10 hover:bg-black/5 active:cursor-grabbing dark:hover:border-white/10 dark:hover:bg-white/10"
           >
-            <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-2 truncate font-medium">
+            <div className="min-w-0">
+              <p className="flex items-center gap-1.5 truncate font-medium">
                 {song.title}
                 {song.hidden && (
-                  <span className="shrink-0 rounded-full bg-black/10 px-2 py-0.5 text-[10px] font-normal text-black/60 dark:bg-white/10 dark:text-white/60">
+                  <span className="shrink-0 rounded-full bg-black/10 px-1.5 py-0.5 text-[9px] font-normal text-black/60 dark:bg-white/10 dark:text-white/60">
                     Unlisted
                   </span>
                 )}
               </p>
-              <p className="truncate text-xs text-black/50 dark:text-white/50">
+              <p className="truncate text-[11px] text-black/50 dark:text-white/50">
                 {song.artistName}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => onLoad("A", song.id)}
-              className="shrink-0 rounded-full border border-black/15 px-2 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-            >
-              → A
-            </button>
-            <button
-              type="button"
-              onClick={() => onLoad("B", song.id)}
-              className="shrink-0 rounded-full border border-black/15 px-2 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-            >
-              → B
-            </button>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => onLoad("A", song.id)}
+                className="flex-1 rounded-full border border-black/15 py-1 text-[10px] font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              >
+                → A
+              </button>
+              <button
+                type="button"
+                onClick={() => onLoad("B", song.id)}
+                className="flex-1 rounded-full border border-black/15 py-1 text-[10px] font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              >
+                → B
+              </button>
+            </div>
           </li>
         ))}
         {filtered.length === 0 && (
-          <p className="p-2 text-sm text-black/50 dark:text-white/50">
+          <p className="p-2 text-xs text-black/50 dark:text-white/50">
             No songs match.
           </p>
         )}

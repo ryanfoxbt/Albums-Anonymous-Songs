@@ -10,6 +10,27 @@ const FILTER_NEUTRAL_FREQ = 22050;
 const FILTER_MIN_LOWPASS = 150;
 const FILTER_MAX_HIGHPASS = 4000;
 
+function MiniSlider({
+  label,
+  valueLabel,
+  title,
+  ...inputProps
+}: {
+  label: string;
+  valueLabel: string;
+  title?: string;
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <label className="flex flex-col gap-0.5 text-[10px]" title={title}>
+      <span className="flex justify-between text-black/50 dark:text-white/50">
+        <span>{label}</span>
+        <span>{valueLabel}</span>
+      </span>
+      <input type="range" className="w-full accent-foreground" {...inputProps} />
+    </label>
+  );
+}
+
 export function DjDeck({
   label,
   song,
@@ -189,6 +210,9 @@ export function DjDeck({
     if (id) onDropSong(id);
   }
 
+  const buttonClass =
+    "flex items-center justify-center rounded-lg border border-black/15 text-[10px] font-medium hover:bg-black/5 disabled:opacity-30 dark:border-white/20 dark:hover:bg-white/10";
+
   return (
     <div
       onDragOver={(e) => {
@@ -197,7 +221,7 @@ export function DjDeck({
       }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
-      className={`flex flex-col gap-3 rounded-2xl border p-4 transition-colors ${
+      className={`flex flex-col gap-2 rounded-2xl border p-3 transition-colors ${
         isDragOver
           ? "border-foreground bg-black/5 dark:bg-white/10"
           : "border-black/10 dark:border-white/10"
@@ -218,132 +242,120 @@ export function DjDeck({
         className="hidden"
       />
 
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wide text-black/40 dark:text-white/40">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-black/40 dark:text-white/40">
           Deck {label}
         </span>
         {song ? (
-          <span className="truncate text-sm font-medium">
+          <span className="truncate text-xs font-medium">
             {song.title} <span className="text-black/50 dark:text-white/50">— {song.artistName}</span>
           </span>
         ) : (
-          <span className="text-sm text-black/40 dark:text-white/40">
-            Drag a song here, or use the &ldquo;→ {label}&rdquo; button
+          <span className="truncate text-xs text-black/40 dark:text-white/40">
+            Drop a song, or use &ldquo;→ {label}&rdquo;
           </span>
         )}
       </div>
 
-      <Turntable song={song} isPlaying={isPlaying} tempo={tempo} />
+      <div className="flex items-center gap-3">
+        <Turntable song={song} isPlaying={isPlaying} tempo={tempo} />
+        <div className="grid flex-1 grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            onClick={togglePlay}
+            disabled={!song}
+            aria-label={isPlaying ? `Pause deck ${label}` : `Play deck ${label}`}
+            className={`${buttonClass} h-8`}
+          >
+            {isPlaying ? (
+              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-current" aria-hidden>
+                <rect x="3" y="2" width="3.5" height="12" rx="0.5" />
+                <rect x="9.5" y="2" width="3.5" height="12" rx="0.5" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-current" aria-hidden>
+                <path d="M4 2.5v11l10-5.5-10-5.5z" />
+              </svg>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => onTempoChange(otherTempo)}
+            disabled={!song || !otherSong}
+            title={`Match this deck's tempo to Deck ${label === "A" ? "B" : "A"}`}
+            className={`${buttonClass} h-8`}
+          >
+            Sync
+          </button>
+          <button
+            type="button"
+            onClick={jumpToCue}
+            disabled={!song}
+            title={`Jump to ${cuePoint.toFixed(1)}s`}
+            className={`${buttonClass} h-8`}
+          >
+            Cue
+          </button>
+          <button
+            type="button"
+            onClick={setCueHere}
+            disabled={!song}
+            title="Store the current position as this deck's cue point"
+            className={`${buttonClass} h-8`}
+          >
+            Set
+          </button>
+        </div>
+      </div>
 
       <Waveform buffer={buffer} progress={song ? progress : null} onSeek={handleSeek} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={togglePlay}
-          disabled={!song}
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/15 hover:bg-black/5 disabled:opacity-30 dark:border-white/20 dark:hover:bg-white/10"
-          aria-label={isPlaying ? `Pause deck ${label}` : `Play deck ${label}`}
-        >
-          {isPlaying ? (
-            <svg viewBox="0 0 16 16" className="h-4 w-4 fill-current" aria-hidden>
-              <rect x="3" y="2" width="3.5" height="12" rx="0.5" />
-              <rect x="9.5" y="2" width="3.5" height="12" rx="0.5" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 16 16" className="h-4 w-4 fill-current" aria-hidden>
-              <path d="M4 2.5v11l10-5.5-10-5.5z" />
-            </svg>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={jumpToCue}
-          disabled={!song}
-          className="shrink-0 rounded-full border border-black/15 px-3 py-1.5 text-xs font-medium hover:bg-black/5 disabled:opacity-30 dark:border-white/20 dark:hover:bg-white/10"
-          title={`Jump to ${cuePoint.toFixed(1)}s`}
-        >
-          Cue
-        </button>
-        <button
-          type="button"
-          onClick={setCueHere}
-          disabled={!song}
-          className="shrink-0 rounded-full border border-black/15 px-3 py-1.5 text-xs font-medium hover:bg-black/5 disabled:opacity-30 dark:border-white/20 dark:hover:bg-white/10"
-          title="Store the current position as this deck's cue point"
-        >
-          Set Cue
-        </button>
-        <button
-          type="button"
-          onClick={() => onTempoChange(otherTempo)}
-          disabled={!song || !otherSong}
-          className="shrink-0 rounded-full border border-black/15 px-3 py-1.5 text-xs font-medium hover:bg-black/5 disabled:opacity-30 dark:border-white/20 dark:hover:bg-white/10"
-          title={`Match this deck's tempo to Deck ${label === "A" ? "B" : "A"}`}
-        >
-          Sync
-        </button>
-      </div>
-
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="flex justify-between text-black/50 dark:text-white/50">
-          <span>Tempo</span>
-          <span>{Math.round(tempo * 100)}%</span>
-        </span>
-        <input
-          type="range"
+      <div className="grid grid-cols-3 gap-2">
+        <MiniSlider
+          label="Tempo"
+          valueLabel={`${Math.round(tempo * 100)}%`}
           min={0.5}
           max={1.5}
           step={0.01}
           value={tempo}
           onChange={(e) => onTempoChange(Number(e.target.value))}
           onDoubleClick={() => onTempoChange(1)}
-          className="accent-foreground"
         />
-      </label>
-
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="flex justify-between text-black/50 dark:text-white/50">
-          <span>Volume</span>
-          <span>{Math.round(trim * 100)}%</span>
-        </span>
-        <input
-          type="range"
+        <MiniSlider
+          label="Volume"
+          valueLabel={`${Math.round(trim * 100)}%`}
           min={0}
           max={1}
           step={0.01}
           value={trim}
           onChange={(e) => setTrim(Number(e.target.value))}
           onDoubleClick={() => setTrim(1)}
-          className="accent-foreground"
         />
-      </label>
-
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="flex justify-between text-black/50 dark:text-white/50">
-          <span>Filter (low ← → high)</span>
-        </span>
-        <input
-          type="range"
+        <MiniSlider
+          label="Filter"
+          valueLabel={`${filterKnob > 0 ? "+" : ""}${Math.round(filterKnob * 100)}%`}
+          title="Low ← neutral → high"
           min={-1}
           max={1}
           step={0.01}
           value={filterKnob}
           onChange={(e) => setFilterKnob(Number(e.target.value))}
           onDoubleClick={() => setFilterKnob(0)}
-          className="accent-foreground"
         />
-      </label>
+      </div>
 
-      <div className="flex items-center gap-3 text-xs">
-        <label className="flex items-center gap-1.5">
-          <input
-            type="checkbox"
-            checked={echoOn}
-            onChange={(e) => setEchoOn(e.target.checked)}
-          />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setEchoOn((v) => !v)}
+          className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium ${
+            echoOn
+              ? "border-foreground bg-foreground text-background"
+              : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+          }`}
+        >
           Echo
-        </label>
+        </button>
         <input
           type="range"
           min={0}

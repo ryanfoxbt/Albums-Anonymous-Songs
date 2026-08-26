@@ -80,7 +80,7 @@ export function Waveform({
     <canvas
       ref={canvasRef}
       onClick={(e) => handleSeek(e.clientX)}
-      className="h-16 w-full cursor-pointer rounded-lg bg-black/5 text-foreground dark:bg-white/10"
+      className="h-11 w-full cursor-pointer rounded-lg bg-black/5 text-foreground dark:bg-white/10"
     />
   );
 }

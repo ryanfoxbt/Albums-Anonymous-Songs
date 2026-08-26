@@ -38,53 +38,57 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
   const { gainA, gainB } = crossfadeGains(crossfader);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid gap-4 md:grid-cols-2">
-        <DjDeck
-          label="A"
-          song={deckASong}
-          audioCtx={audioCtx}
-          gain={gainA}
-          tempo={tempoA}
-          onTempoChange={setTempoA}
-          otherTempo={tempoB}
-          otherSong={deckBSong}
-          onDropSong={(id) => loadSong("A", id)}
-        />
-        <DjDeck
-          label="B"
-          song={deckBSong}
-          audioCtx={audioCtx}
-          gain={gainB}
-          tempo={tempoB}
-          onTempoChange={setTempoB}
-          otherTempo={tempoA}
-          otherSong={deckASong}
-          onDropSong={(id) => loadSong("B", id)}
-        />
-      </div>
-
-      <div className="flex flex-col items-center gap-1 rounded-2xl border border-black/10 p-4 dark:border-white/10">
-        <span className="text-xs font-medium text-black/50 dark:text-white/50">
-          Crossfader
-        </span>
-        <div className="flex w-full max-w-md items-center gap-3">
-          <span className="text-xs font-bold">A</span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={crossfader}
-            onChange={(e) => setCrossfader(Number(e.target.value))}
-            onDoubleClick={() => setCrossfader(0.5)}
-            className="flex-1 accent-foreground"
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <div className="grid gap-3 md:grid-cols-2">
+          <DjDeck
+            label="A"
+            song={deckASong}
+            audioCtx={audioCtx}
+            gain={gainA}
+            tempo={tempoA}
+            onTempoChange={setTempoA}
+            otherTempo={tempoB}
+            otherSong={deckBSong}
+            onDropSong={(id) => loadSong("A", id)}
           />
-          <span className="text-xs font-bold">B</span>
+          <DjDeck
+            label="B"
+            song={deckBSong}
+            audioCtx={audioCtx}
+            gain={gainB}
+            tempo={tempoB}
+            onTempoChange={setTempoB}
+            otherTempo={tempoA}
+            otherSong={deckASong}
+            onDropSong={(id) => loadSong("B", id)}
+          />
+        </div>
+
+        <div className="flex flex-col items-center gap-1 rounded-2xl border border-black/10 p-3 dark:border-white/10">
+          <span className="text-[10px] font-medium text-black/50 dark:text-white/50">
+            Crossfader
+          </span>
+          <div className="flex w-full max-w-md items-center gap-3">
+            <span className="text-xs font-bold">A</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={crossfader}
+              onChange={(e) => setCrossfader(Number(e.target.value))}
+              onDoubleClick={() => setCrossfader(0.5)}
+              className="flex-1 accent-foreground"
+            />
+            <span className="text-xs font-bold">B</span>
+          </div>
         </div>
       </div>
 
-      <SongBrowser songs={songs} onLoad={loadSong} />
+      <div className="flex min-h-0 flex-col gap-4 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:w-72 lg:shrink-0">
+        <SongBrowser songs={songs} onLoad={loadSong} />
+      </div>
     </div>
   );
 }

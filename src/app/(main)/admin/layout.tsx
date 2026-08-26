@@ -73,6 +73,12 @@ export default async function AdminLayout({
               Social Links
             </Link>
             <Link
+              href="/admin/dj"
+              className="text-black/60 hover:text-black hover:underline dark:text-white/60 dark:hover:text-white"
+            >
+              DJ
+            </Link>
+            <Link
               href="/admin/analytics"
               className="text-black/60 hover:text-black hover:underline dark:text-white/60 dark:hover:text-white"
             >

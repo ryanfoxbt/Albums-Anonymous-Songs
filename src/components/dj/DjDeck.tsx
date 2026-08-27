@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { loadAudioBuffer } from "./audioEngine";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { getEstimatedBpm, getImpulseResponse, loadAudioBuffer } from "./audioEngine";
 import { Turntable } from "./Turntable";
 import { DJ_DRAG_MIME, type DjSong } from "./types";
 import { Waveform } from "./Waveform";
@@ -9,6 +9,14 @@ import { Waveform } from "./Waveform";
 const FILTER_NEUTRAL_FREQ = 22050;
 const FILTER_MIN_LOWPASS = 150;
 const FILTER_MAX_HIGHPASS = 4000;
+const FLANGER_BASE_DELAY = 0.006;
+const FLANGER_DEPTH = 0.004;
+const FLANGER_RATE_HZ = 0.22;
+
+export type DjDeckHandle = {
+  play: () => void;
+  pause: () => void;
+};
 
 function MiniSlider({
   label,
@@ -31,29 +39,84 @@ function MiniSlider({
   );
 }
 
-export function DjDeck({
+function FxToggle({
   label,
-  song,
-  audioCtx,
-  gain,
-  tempo,
-  onTempoChange,
-  otherTempo,
-  otherSong,
-  onDropSong,
+  on,
+  onToggle,
+  mix,
+  onMixChange,
+  max = 0.6,
 }: {
-  label: "A" | "B";
-  song: DjSong | null;
-  audioCtx: AudioContext | null;
-  /** This deck's target output gain (0..1), driven by the shared crossfader. */
-  gain: number;
-  tempo: number;
-  onTempoChange: (tempo: number) => void;
-  /** The other deck's tempo, for the "Sync" button. */
-  otherTempo: number;
-  otherSong: DjSong | null;
-  onDropSong: (songId: string) => void;
+  label: string;
+  on: boolean;
+  onToggle: () => void;
+  mix: number;
+  onMixChange: (value: number) => void;
+  max?: number;
 }) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`w-16 shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium ${
+          on
+            ? "border-foreground bg-foreground text-background"
+            : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+        }`}
+      >
+        {label}
+      </button>
+      <input
+        type="range"
+        min={0}
+        max={max}
+        step={0.01}
+        value={mix}
+        disabled={!on}
+        onChange={(e) => onMixChange(Number(e.target.value))}
+        className="flex-1 accent-foreground disabled:opacity-30"
+      />
+    </div>
+  );
+}
+
+export const DjDeck = forwardRef<
+  DjDeckHandle,
+  {
+    label: "A" | "B";
+    song: DjSong | null;
+    audioCtx: AudioContext | null;
+    /** This deck's target output gain (0..1), driven by the shared crossfader. */
+    gain: number;
+    tempo: number;
+    onTempoChange: (tempo: number) => void;
+    /** The other deck's tempo/BPM, for the "Sync" button. */
+    otherTempo: number;
+    otherBpm: number | null;
+    otherSong: DjSong | null;
+    onDropSong: (songId: string) => void;
+    onBpmChange?: (bpm: number | null) => void;
+    /** Fires when this deck's track finishes playing on its own — drives Auto DJ handoff. */
+    onEnded?: () => void;
+  }
+>(function DjDeck(
+  {
+    label,
+    song,
+    audioCtx,
+    gain,
+    tempo,
+    onTempoChange,
+    otherTempo,
+    otherBpm,
+    otherSong,
+    onDropSong,
+    onBpmChange,
+    onEnded,
+  },
+  ref,
+) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const graphRef = useRef<{
     filter: BiquadFilterNode;
@@ -61,6 +124,9 @@ export function DjDeck({
     delay: DelayNode;
     feedback: GainNode;
     wetGain: GainNode;
+    reverbWetGain: GainNode;
+    flangerWetGain: GainNode;
+    flangerDelay: DelayNode;
     deckGain: GainNode;
   } | null>(null);
   const loadedSongIdRef = useRef<string | null>(null);
@@ -68,12 +134,25 @@ export function DjDeck({
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
+  const [bpm, setBpm] = useState<number | null>(null);
   const [filterKnob, setFilterKnob] = useState(0);
   const [echoOn, setEchoOn] = useState(false);
   const [echoMix, setEchoMix] = useState(0.3);
+  const [reverbOn, setReverbOn] = useState(false);
+  const [reverbMix, setReverbMix] = useState(0.35);
+  const [flangerOn, setFlangerOn] = useState(false);
+  const [flangerMix, setFlangerMix] = useState(0.5);
   const [trim, setTrim] = useState(1);
   const [cuePoint, setCuePoint] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    play: () => {
+      audioCtx?.resume();
+      audioRef.current?.play();
+    },
+    pause: () => audioRef.current?.pause(),
+  }));
 
   // Build the Web Audio node graph exactly once per deck. A
   // MediaElementAudioSourceNode can only ever be created once for a given
@@ -91,12 +170,33 @@ export function DjDeck({
     const dryGain = audioCtx.createGain();
     dryGain.gain.value = 1;
 
+    // Echo: a feedback delay loop.
     const delay = audioCtx.createDelay(1);
     delay.delayTime.value = 0.3;
     const feedback = audioCtx.createGain();
     feedback.gain.value = 0.35;
     const wetGain = audioCtx.createGain();
     wetGain.gain.value = 0;
+
+    // Reverb: a synthetic-impulse convolver.
+    const convolver = audioCtx.createConvolver();
+    convolver.buffer = getImpulseResponse(audioCtx);
+    const reverbWetGain = audioCtx.createGain();
+    reverbWetGain.gain.value = 0;
+
+    // Flanger: a short LFO-modulated delay, swept continuously.
+    const flangerDelay = audioCtx.createDelay(0.02);
+    flangerDelay.delayTime.value = FLANGER_BASE_DELAY;
+    const flangerFeedback = audioCtx.createGain();
+    flangerFeedback.gain.value = 0.25;
+    const flangerWetGain = audioCtx.createGain();
+    flangerWetGain.gain.value = 0;
+    const lfo = audioCtx.createOscillator();
+    lfo.frequency.value = FLANGER_RATE_HZ;
+    const lfoDepth = audioCtx.createGain();
+    lfoDepth.gain.value = FLANGER_DEPTH;
+    lfo.connect(lfoDepth).connect(flangerDelay.delayTime);
+    lfo.start();
 
     const deckGain = audioCtx.createGain();
     deckGain.gain.value = gain;
@@ -106,9 +206,23 @@ export function DjDeck({
     filter.connect(delay);
     delay.connect(feedback).connect(delay);
     delay.connect(wetGain).connect(deckGain);
+    filter.connect(convolver).connect(reverbWetGain).connect(deckGain);
+    filter.connect(flangerDelay);
+    flangerDelay.connect(flangerFeedback).connect(flangerDelay);
+    flangerDelay.connect(flangerWetGain).connect(deckGain);
     deckGain.connect(audioCtx.destination);
 
-    graphRef.current = { filter, dryGain, delay, feedback, wetGain, deckGain };
+    graphRef.current = {
+      filter,
+      dryGain,
+      delay,
+      feedback,
+      wetGain,
+      reverbWetGain,
+      flangerWetGain,
+      flangerDelay,
+      deckGain,
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioCtx]);
 
@@ -143,6 +257,18 @@ export function DjDeck({
   }, [echoOn, echoMix]);
 
   useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    graph.reverbWetGain.gain.value = reverbOn ? reverbMix : 0;
+  }, [reverbOn, reverbMix]);
+
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    graph.flangerWetGain.gain.value = flangerOn ? flangerMix : 0;
+  }, [flangerOn, flangerMix]);
+
+  useEffect(() => {
     const audio = audioRef.current;
     if (audio) audio.playbackRate = tempo;
   }, [tempo]);
@@ -161,16 +287,24 @@ export function DjDeck({
     onTempoChange(1);
     setFilterKnob(0);
     setEchoOn(false);
+    setReverbOn(false);
+    setFlangerOn(false);
     setCuePoint(0);
     setBuffer(null);
+    setBpm(null);
+    onBpmChange?.(null);
 
     if (audioCtx) {
       loadAudioBuffer(audioCtx, song.audioUrl)
         .then((buf) => {
-          if (loadedSongIdRef.current === song.id) setBuffer(buf);
+          if (loadedSongIdRef.current !== song.id) return;
+          setBuffer(buf);
+          const estimated = getEstimatedBpm(buf, song.audioUrl);
+          setBpm(estimated);
+          onBpmChange?.(estimated);
         })
         .catch(() => {
-          // Waveform is a nice-to-have; playback still works without it.
+          // Waveform/BPM are nice-to-haves; playback still works without them.
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,6 +329,17 @@ export function DjDeck({
     const audio = audioRef.current;
     if (!audio) return;
     setCuePoint(audio.currentTime);
+  }
+
+  function syncTempo() {
+    // Real beatmatching when both decks' BPM are known; otherwise just
+    // copy the other deck's raw speed as a starting point.
+    if (bpm && otherBpm) {
+      const target = (otherBpm * otherTempo) / bpm;
+      onTempoChange(Math.min(1.5, Math.max(0.5, target)));
+    } else {
+      onTempoChange(otherTempo);
+    }
   }
 
   function handleSeek(fraction: number) {
@@ -238,7 +383,10 @@ export function DjDeck({
             setProgress(audio.currentTime / audio.duration);
           }
         }}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={() => {
+          setIsPlaying(false);
+          onEnded?.();
+        }}
         className="hidden"
       />
 
@@ -247,12 +395,17 @@ export function DjDeck({
           Deck {label}
         </span>
         {song ? (
-          <span className="truncate text-xs font-medium">
+          <span className="min-w-0 truncate text-xs font-medium">
             {song.title} <span className="text-black/50 dark:text-white/50">— {song.artistName}</span>
           </span>
         ) : (
           <span className="truncate text-xs text-black/40 dark:text-white/40">
             Drop a song, or use &ldquo;→ {label}&rdquo;
+          </span>
+        )}
+        {bpm && (
+          <span className="shrink-0 rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-black/50 dark:bg-white/10 dark:text-white/50">
+            ~{bpm} BPM
           </span>
         )}
       </div>
@@ -280,9 +433,9 @@ export function DjDeck({
           </button>
           <button
             type="button"
-            onClick={() => onTempoChange(otherTempo)}
+            onClick={syncTempo}
             disabled={!song || !otherSong}
-            title={`Match this deck's tempo to Deck ${label === "A" ? "B" : "A"}`}
+            title={`Match this deck's tempo to Deck ${label === "A" ? "B" : "A"}${bpm && otherBpm ? " (beatmatched)" : ""}`}
             className={`${buttonClass} h-8`}
           >
             Sync
@@ -344,29 +497,23 @@ export function DjDeck({
         />
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setEchoOn((v) => !v)}
-          className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium ${
-            echoOn
-              ? "border-foreground bg-foreground text-background"
-              : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-          }`}
-        >
-          Echo
-        </button>
-        <input
-          type="range"
-          min={0}
-          max={0.6}
-          step={0.01}
-          value={echoMix}
-          disabled={!echoOn}
-          onChange={(e) => setEchoMix(Number(e.target.value))}
-          className="flex-1 accent-foreground disabled:opacity-30"
+      <div className="flex flex-col gap-1.5">
+        <FxToggle label="Echo" on={echoOn} onToggle={() => setEchoOn((v) => !v)} mix={echoMix} onMixChange={setEchoMix} />
+        <FxToggle
+          label="Reverb"
+          on={reverbOn}
+          onToggle={() => setReverbOn((v) => !v)}
+          mix={reverbMix}
+          onMixChange={setReverbMix}
+        />
+        <FxToggle
+          label="Flanger"
+          on={flangerOn}
+          onToggle={() => setFlangerOn((v) => !v)}
+          mix={flangerMix}
+          onMixChange={setFlangerMix}
         />
       </div>
     </div>
   );
-}
+});

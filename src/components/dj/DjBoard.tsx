@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { crossfadeGains } from "./audioEngine";
-import { DjDeck } from "./DjDeck";
+import { DjDeck, type DjDeckHandle } from "./DjDeck";
 import { SongBrowser } from "./SongBrowser";
 import type { DjSong } from "./types";
+
+const AUTO_DJ_TRANSITION_MS = 5000;
 
 export function DjBoard({ songs }: { songs: DjSong[] }) {
   const songsById = useMemo(() => new Map(songs.map((s) => [s.id, s])), [songs]);
@@ -13,10 +15,24 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
   const [deckBSong, setDeckBSong] = useState<DjSong | null>(null);
   const [tempoA, setTempoA] = useState(1);
   const [tempoB, setTempoB] = useState(1);
+  const [bpmA, setBpmA] = useState<number | null>(null);
+  const [bpmB, setBpmB] = useState<number | null>(null);
   const [crossfader, setCrossfader] = useState(0.5);
+  const [autoDj, setAutoDj] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [audioCtx, setAudioCtx] = useState<AudioContext | null>(null);
+
+  const deckARef = useRef<DjDeckHandle>(null);
+  const deckBRef = useRef<DjDeckHandle>(null);
+  const transitionRef = useRef<number | null>(null);
+  const kickstartedRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (transitionRef.current) cancelAnimationFrame(transitionRef.current);
+    };
+  }, []);
 
   function ensureAudioContext(): AudioContext {
     if (!audioCtxRef.current) {
@@ -35,6 +51,75 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
     else setDeckBSong(song);
   }
 
+  function pickRandomSong(excludeIds: (string | undefined)[]): DjSong | null {
+    if (songs.length === 0) return null;
+    const pool = songs.filter((s) => !excludeIds.includes(s.id));
+    const candidates = pool.length > 0 ? pool : songs;
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  function animateCrossfadeTo(target: 0 | 1, onComplete?: () => void) {
+    if (transitionRef.current) cancelAnimationFrame(transitionRef.current);
+    const start = performance.now();
+    const from = crossfader;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / AUTO_DJ_TRANSITION_MS);
+      setCrossfader(from + (target - from) * t);
+      if (t < 1) {
+        transitionRef.current = requestAnimationFrame(step);
+      } else {
+        transitionRef.current = null;
+        onComplete?.();
+      }
+    };
+    transitionRef.current = requestAnimationFrame(step);
+  }
+
+  // While Auto DJ is on, keep both decks stocked with a track so a handoff
+  // never has to cold-load — the standby deck is always cued and ready.
+  /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect --
+     intentionally reacting to a deck going song-less, not deriving render state */
+  useEffect(() => {
+    if (!autoDj) return;
+    if (!deckASong) {
+      const next = pickRandomSong([deckBSong?.id]);
+      if (next) loadSong("A", next.id);
+    } else if (!deckBSong) {
+      const next = pickRandomSong([deckASong?.id]);
+      if (next) loadSong("B", next.id);
+    }
+  }, [autoDj, deckASong, deckBSong]);
+  /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+
+  // First time both decks are stocked after turning Auto DJ on, kick things
+  // off by playing Deck A — from then on, handoffs take over on their own.
+  useEffect(() => {
+    if (!autoDj) {
+      kickstartedRef.current = false;
+      return;
+    }
+    if (kickstartedRef.current || !deckASong || !deckBSong) return;
+    kickstartedRef.current = true;
+    deckARef.current?.play();
+    setCrossfader(0);
+  }, [autoDj, deckASong, deckBSong]);
+
+  function handleDeckEnded(deck: "A" | "B") {
+    if (!autoDj) return;
+    const finishedRef = deck === "A" ? deckARef : deckBRef;
+    const target = deck === "A" ? "B" : "A";
+    const targetRef = target === "A" ? deckARef : deckBRef;
+    const targetSong = target === "A" ? deckASong : deckBSong;
+    if (!targetSong) return;
+
+    targetRef.current?.play();
+    animateCrossfadeTo(target === "A" ? 0 : 1, () => {
+      finishedRef.current?.pause();
+      const next = pickRandomSong([targetSong.id]);
+      if (next) loadSong(deck, next.id);
+    });
+  }
+
   const { gainA, gainB } = crossfadeGains(crossfader);
 
   return (
@@ -42,6 +127,7 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div className="grid gap-3 md:grid-cols-2">
           <DjDeck
+            ref={deckARef}
             label="A"
             song={deckASong}
             audioCtx={audioCtx}
@@ -49,10 +135,14 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
             tempo={tempoA}
             onTempoChange={setTempoA}
             otherTempo={tempoB}
+            otherBpm={bpmB}
             otherSong={deckBSong}
             onDropSong={(id) => loadSong("A", id)}
+            onBpmChange={setBpmA}
+            onEnded={() => handleDeckEnded("A")}
           />
           <DjDeck
+            ref={deckBRef}
             label="B"
             song={deckBSong}
             audioCtx={audioCtx}
@@ -60,15 +150,32 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
             tempo={tempoB}
             onTempoChange={setTempoB}
             otherTempo={tempoA}
+            otherBpm={bpmA}
             otherSong={deckASong}
             onDropSong={(id) => loadSong("B", id)}
+            onBpmChange={setBpmB}
+            onEnded={() => handleDeckEnded("B")}
           />
         </div>
 
-        <div className="flex flex-col items-center gap-1 rounded-2xl border border-black/10 p-3 dark:border-white/10">
-          <span className="text-[10px] font-medium text-black/50 dark:text-white/50">
-            Crossfader
-          </span>
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-black/10 p-3 dark:border-white/10">
+          <div className="flex w-full max-w-md items-center justify-between">
+            <span className="text-[10px] font-medium text-black/50 dark:text-white/50">
+              Crossfader
+            </span>
+            <button
+              type="button"
+              onClick={() => setAutoDj((v) => !v)}
+              title="Automatically crossfade into a new track whenever the current one ends"
+              className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
+                autoDj
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              }`}
+            >
+              Auto DJ {autoDj ? "On" : "Off"}
+            </button>
+          </div>
           <div className="flex w-full max-w-md items-center gap-3">
             <span className="text-xs font-bold">A</span>
             <input
@@ -83,6 +190,11 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
             />
             <span className="text-xs font-bold">B</span>
           </div>
+          {autoDj && (
+            <p className="text-[10px] text-black/40 dark:text-white/40">
+              Auto DJ is on — a new random track will crossfade in whenever one ends.
+            </p>
+          )}
         </div>
       </div>
 

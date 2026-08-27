@@ -13,6 +13,7 @@ export default async function AdminDjPage() {
     coverImageUrl: song.coverImageUrl,
     hidden: song.hidden,
     durationSeconds: song.durationSeconds,
+    playCount: song.playCount ?? 0,
   }));
 
   return (

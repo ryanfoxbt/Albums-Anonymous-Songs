@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { DJ_DRAG_MIME, type DjSong } from "./types";
 
 type ListedFilter = "all" | "listed" | "unlisted";
+type SortOrder = "title" | "popular";
 
 export function SongBrowser({
   songs,
@@ -14,10 +15,11 @@ export function SongBrowser({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ListedFilter>("all");
+  const [sort, setSort] = useState<SortOrder>("title");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return songs.filter((song) => {
+    const matches = songs.filter((song) => {
       if (filter === "listed" && song.hidden) return false;
       if (filter === "unlisted" && !song.hidden) return false;
       if (!q) return true;
@@ -26,7 +28,11 @@ export function SongBrowser({
         song.artistName.toLowerCase().includes(q)
       );
     });
-  }, [songs, query, filter]);
+    if (sort === "popular") {
+      return [...matches].sort((a, b) => b.playCount - a.playCount);
+    }
+    return matches;
+  }, [songs, query, filter, sort]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2.5 rounded-2xl border border-black/10 p-3 dark:border-white/10">
@@ -58,6 +64,26 @@ export function SongBrowser({
         ))}
       </div>
 
+      <div className="flex gap-1 text-[10px]">
+        {([
+          ["title", "A–Z"],
+          ["popular", "Most popular"],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setSort(value)}
+            className={`rounded-full border px-2.5 py-1 font-medium ${
+              sort === value
+                ? "border-foreground bg-foreground text-background"
+                : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
         {filtered.map((song) => (
           <li
@@ -80,6 +106,8 @@ export function SongBrowser({
               </p>
               <p className="truncate text-[11px] text-black/50 dark:text-white/50">
                 {song.artistName}
+                {sort === "popular" &&
+                  ` · ${song.playCount} play${song.playCount === 1 ? "" : "s"}`}
               </p>
             </div>
             <div className="flex gap-1.5">

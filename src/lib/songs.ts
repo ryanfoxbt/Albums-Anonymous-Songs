@@ -32,6 +32,8 @@ export type SongWithRelations = {
   featuredArtist: ArtistSummary | null;
   genre: GenreSummary;
   category: CategorySummary;
+  /** All-time play count — only populated by {@link getSongs}. */
+  playCount?: number;
 };
 
 type SongsContent = {
@@ -134,6 +136,7 @@ function fallbackSongs(): SongWithRelations[] {
       featuredArtist: null,
       genre,
       category,
+      playCount: 0,
     };
   });
 }
@@ -150,7 +153,7 @@ export async function getSongs(
     return includeHidden ? songs : songs.filter((song) => !song.hidden);
   }
   try {
-    const songs = await prisma.song.findMany({
+    const rows = await prisma.song.findMany({
       where: includeHidden ? undefined : { hidden: false },
       include: {
         artist: true,
@@ -161,9 +164,10 @@ export async function getSongs(
       },
       orderBy: { title: "asc" },
     });
+    const songs = rows.map((song) => ({ ...song, playCount: song._count.songPlays }));
     if (sortBy === "popularity") {
-      return [...songs].sort((a, b) => {
-        const diff = b._count.songPlays - a._count.songPlays;
+      return songs.sort((a, b) => {
+        const diff = b.playCount - a.playCount;
         return diff !== 0 ? diff : a.title.localeCompare(b.title);
       });
     }

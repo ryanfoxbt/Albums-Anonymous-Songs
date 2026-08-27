@@ -6,6 +6,7 @@ export type DjSong = {
   coverImageUrl: string | null;
   hidden: boolean;
   durationSeconds: number | null;
+  playCount: number;
 };
 
 export const DJ_DRAG_MIME = "application/x-dj-song-id";

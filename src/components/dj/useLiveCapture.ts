@@ -47,10 +47,15 @@ export type CaptureControls = {
   setError: (message: string | null) => void;
 };
 
-const DEFAULT_CONSTRAINTS: MediaTrackConstraints = {
+// `latency` is in the spec but missing from TS's lib.dom MediaTrackConstraints.
+const DEFAULT_CONSTRAINTS: MediaTrackConstraints & {
+  latency?: ConstrainDouble;
+} = {
   echoCancellation: false,
   noiseSuppression: false,
   autoGainControl: false,
+  // Ask the browser for the smallest capture buffer it will give us.
+  latency: { ideal: 0 },
 };
 
 export function useLiveCapture<C extends BaseChain>(opts: {

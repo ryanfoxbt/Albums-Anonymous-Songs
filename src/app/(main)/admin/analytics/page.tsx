@@ -5,6 +5,8 @@ import { StatCard } from "@/components/admin/StatCard";
 import {
   getOverviewStats,
   getRecentSubscribers,
+  getReturningVisitorSongLeaderboard,
+  getReturningVisitorStats,
   getSongLeaderboard,
   getTimeSeries,
   getTopLocations,
@@ -41,17 +43,31 @@ export default async function AdminAnalyticsPage({
     to: toParam,
   });
 
-  const [stats, prevStats, series, topPages, topSources, topSongs, topLocations, recentSubscribers] =
-    await Promise.all([
-      getOverviewStats(range),
-      getOverviewStats(previousPeriod(range)),
-      getTimeSeries(range),
-      getTopPages(range, 8),
-      getTopSources(range, 8),
-      getSongLeaderboard(range, 5),
-      getTopLocations(range, 8),
-      getRecentSubscribers(5),
-    ]);
+  const [
+    stats,
+    prevStats,
+    series,
+    topPages,
+    topSources,
+    topSongs,
+    topLocations,
+    recentSubscribers,
+    returningStats,
+    prevReturningStats,
+    returningTopSongs,
+  ] = await Promise.all([
+    getOverviewStats(range),
+    getOverviewStats(previousPeriod(range)),
+    getTimeSeries(range),
+    getTopPages(range, 8),
+    getTopSources(range, 8),
+    getSongLeaderboard(range, 5),
+    getTopLocations(range, 8),
+    getRecentSubscribers(5),
+    getReturningVisitorStats(range),
+    getReturningVisitorStats(previousPeriod(range)),
+    getReturningVisitorSongLeaderboard(range, 5),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -167,6 +183,83 @@ export default async function AdminAnalyticsPage({
       </p>
 
       <AnalyticsTrendChart data={series} />
+
+      <section className="flex flex-col gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+            Returning visitors
+          </h2>
+          <Link
+            href="/admin/analytics/visitors"
+            className="text-xs text-black/50 underline hover:text-black dark:text-white/50 dark:hover:text-white"
+          >
+            View visitors
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard
+            label="Returning visitors"
+            value={String(returningStats.returningVisitors)}
+            sublabel={
+              stats.uniqueVisitors > 0
+                ? `${formatPercent(returningStats.returningVisitors / stats.uniqueVisitors)} of visitors`
+                : undefined
+            }
+            delta={formatDelta(returningStats.returningVisitors, prevReturningStats.returningVisitors)}
+          />
+          <StatCard
+            label="Returning song plays"
+            value={String(returningStats.songPlays)}
+            delta={formatDelta(returningStats.songPlays, prevReturningStats.songPlays)}
+          />
+          <StatCard
+            label="Their listening time"
+            value={formatListeningTime(returningStats.totalListeningSeconds)}
+            delta={formatDelta(
+              returningStats.totalListeningSeconds,
+              prevReturningStats.totalListeningSeconds,
+            )}
+          />
+          <StatCard
+            label="Avg. per returning visitor"
+            value={formatListeningTime(returningStats.avgListeningSecondsPerVisitor)}
+            delta={formatDelta(
+              returningStats.avgListeningSecondsPerVisitor,
+              prevReturningStats.avgListeningSecondsPerVisitor,
+            )}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <h3 className="text-xs font-medium text-black/50 dark:text-white/50">
+            What they&apos;re listening to
+          </h3>
+          <ul className="flex flex-col gap-1">
+            {returningTopSongs.map((song) => (
+              <li
+                key={song.songId}
+                className="flex items-center justify-between gap-3 rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10"
+              >
+                <span className="min-w-0 truncate">
+                  {song.title}{" "}
+                  <span className="text-black/50 dark:text-white/50">
+                    — {song.artistName}
+                  </span>
+                </span>
+                <span className="shrink-0 text-black/60 dark:text-white/60">
+                  {song.plays} plays · {formatListeningTime(song.totalListenedSeconds)}
+                </span>
+              </li>
+            ))}
+            {returningTopSongs.length === 0 && (
+              <p className="text-sm text-black/50 dark:text-white/50">
+                No returning-visitor plays in this range yet.
+              </p>
+            )}
+          </ul>
+        </div>
+      </section>
 
       <div className="grid gap-6 sm:grid-cols-2">
         <section className="flex flex-col gap-2">

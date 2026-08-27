@@ -300,31 +300,16 @@ export type SongLeaderboardEntry = {
   podcastClicks: number;
 };
 
-export async function getSongLeaderboard(
-  range: DateRange,
-  limit = 20,
+async function buildSongLeaderboard(
+  events: {
+    songId: string;
+    visitorId: string;
+    completed: boolean;
+    listenedSeconds: number | null;
+  }[],
+  clicksBySong: Map<string, number>,
+  limit: number,
 ): Promise<SongLeaderboardEntry[]> {
-  const playedAt = { gte: range.from, lte: range.to };
-  const [events, clickCounts] = await Promise.all([
-    prisma.songPlayEvent.findMany({
-      where: { playedAt },
-      select: {
-        songId: true,
-        visitorId: true,
-        completed: true,
-        listenedSeconds: true,
-      },
-    }),
-    prisma.podcastLinkClick.groupBy({
-      by: ["songId"],
-      where: { clickedAt: playedAt },
-      _count: { id: true },
-    }),
-  ]);
-  const clicksBySong = new Map(
-    clickCounts.map((row) => [row.songId, row._count.id]),
-  );
-
   const bySong = new Map<
     string,
     {
@@ -378,6 +363,104 @@ export async function getSongLeaderboard(
     })
     .sort((a, b) => b.plays - a.plays)
     .slice(0, limit);
+}
+
+export async function getSongLeaderboard(
+  range: DateRange,
+  limit = 20,
+): Promise<SongLeaderboardEntry[]> {
+  const playedAt = { gte: range.from, lte: range.to };
+  const [events, clickCounts] = await Promise.all([
+    prisma.songPlayEvent.findMany({
+      where: { playedAt },
+      select: {
+        songId: true,
+        visitorId: true,
+        completed: true,
+        listenedSeconds: true,
+      },
+    }),
+    prisma.podcastLinkClick.groupBy({
+      by: ["songId"],
+      where: { clickedAt: playedAt },
+      _count: { id: true },
+    }),
+  ]);
+  const clicksBySong = new Map(
+    clickCounts.map((row) => [row.songId, row._count.id]),
+  );
+
+  return buildSongLeaderboard(events, clicksBySong, limit);
+}
+
+export type ReturningVisitorStats = {
+  returningVisitors: number;
+  returningSessions: number;
+  songPlays: number;
+  totalListeningSeconds: number;
+  avgListeningSecondsPerVisitor: number;
+};
+
+/**
+ * Visitors who had already been seen before the session(s) they started in
+ * this range (VisitSession.isReturning) — how many came back, and how much
+ * they listened while they were here.
+ */
+export async function getReturningVisitorStats(
+  range: DateRange,
+): Promise<ReturningVisitorStats> {
+  const startedAt = { gte: range.from, lte: range.to };
+  const [returningVisitorRows, returningSessions, songPlayEvents] = await Promise.all([
+    prisma.visitSession.findMany({
+      where: { startedAt, isReturning: true },
+      select: { visitorId: true },
+      distinct: ["visitorId"],
+    }),
+    prisma.visitSession.count({ where: { startedAt, isReturning: true } }),
+    prisma.songPlayEvent.findMany({
+      where: {
+        playedAt: { gte: range.from, lte: range.to },
+        session: { isReturning: true },
+      },
+      select: { listenedSeconds: true },
+    }),
+  ]);
+
+  const returningVisitors = returningVisitorRows.length;
+  const totalListeningSeconds = songPlayEvents.reduce(
+    (sum, event) => sum + (event.listenedSeconds ?? 0),
+    0,
+  );
+
+  return {
+    returningVisitors,
+    returningSessions,
+    songPlays: songPlayEvents.length,
+    totalListeningSeconds,
+    avgListeningSecondsPerVisitor:
+      returningVisitors > 0 ? totalListeningSeconds / returningVisitors : 0,
+  };
+}
+
+/** Same shape as {@link getSongLeaderboard}, scoped to plays made during a returning session. */
+export async function getReturningVisitorSongLeaderboard(
+  range: DateRange,
+  limit = 5,
+): Promise<SongLeaderboardEntry[]> {
+  const events = await prisma.songPlayEvent.findMany({
+    where: {
+      playedAt: { gte: range.from, lte: range.to },
+      session: { isReturning: true },
+    },
+    select: {
+      songId: true,
+      visitorId: true,
+      completed: true,
+      listenedSeconds: true,
+    },
+  });
+
+  return buildSongLeaderboard(events, new Map(), limit);
 }
 
 export type RecentSubscriber = {

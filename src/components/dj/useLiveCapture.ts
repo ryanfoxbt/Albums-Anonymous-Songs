@@ -24,8 +24,8 @@ export type BaseChain = {
 // What each instrument reports up to the <LiveInput> wrapper.
 export type LiveStatus = {
   enabled: boolean;
+  /** Round-trip monitoring latency of the live path, ms — shown for reference. */
   latencyMs: number | null;
-  recommendedSyncMs: number | null;
 };
 
 export type CaptureControls = {
@@ -33,8 +33,6 @@ export type CaptureControls = {
   starting: boolean;
   error: string | null;
   latencyMs: number | null;
-  /** Estimated ms the decks should be delayed to line up with this live input. */
-  recommendedSyncMs: number | null;
   inputDevices: MediaDeviceInfo[];
   outputDevices: MediaDeviceInfo[];
   inputId: string;
@@ -80,9 +78,6 @@ export function useLiveCapture<C extends BaseChain>(opts: {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
-  const [recommendedSyncMs, setRecommendedSyncMs] = useState<number | null>(
-    null,
-  );
 
   const [inputDevices, setInputDevices] = useState<MediaDeviceInfo[]>([]);
   const [outputDevices, setOutputDevices] = useState<MediaDeviceInfo[]>([]);
@@ -169,28 +164,16 @@ export function useLiveCapture<C extends BaseChain>(opts: {
       });
       const chain = opts.build(ctx, stream);
       chainRef.current = chain;
-      const track = stream.getAudioTracks()[0];
-      const settings = track?.getSettings() as
-        | (MediaTrackSettings & { latency?: number })
-        | undefined;
-      appliedInputRef.current = settings?.deviceId ?? "";
-      if (settings?.deviceId) setInputId(settings.deviceId);
+      const deviceId = stream.getAudioTracks()[0]?.getSettings().deviceId;
+      appliedInputRef.current = deviceId ?? "";
+      if (deviceId) setInputId(deviceId);
       // Permission is granted now, so device labels are readable — this may
       // upgrade the input/output to a detected interface and hot-swap the chain.
       await refreshDevices();
+      // Rough round-trip latency of the browser audio pipeline — shown for
+      // reference so it can be used as a sync offset in streaming software.
       setLatencyMs(
         Math.round((ctx.baseLatency + (ctx.outputLatency || 0)) * 1000),
-      );
-      // How far the file decks should be pushed back to meet this live input:
-      // the capture (input) latency the decks don't have, plus ~12 ms for the
-      // in-line compressor and capture pipeline. Fall back to ~2x the output
-      // buffer when the device doesn't report its own latency.
-      const inputLatency =
-        typeof settings?.latency === "number" && settings.latency > 0
-          ? settings.latency
-          : ctx.baseLatency * 2;
-      setRecommendedSyncMs(
-        Math.max(0, Math.min(150, Math.round(inputLatency * 1000) + 12)),
       );
       setEnabled(true);
     } catch (err) {
@@ -204,7 +187,6 @@ export function useLiveCapture<C extends BaseChain>(opts: {
     teardown();
     setEnabled(false);
     setLatencyMs(null);
-    setRecommendedSyncMs(null);
     setError(null);
   }
 
@@ -270,7 +252,6 @@ export function useLiveCapture<C extends BaseChain>(opts: {
     starting,
     error,
     latencyMs,
-    recommendedSyncMs,
     inputDevices,
     outputDevices,
     inputId,

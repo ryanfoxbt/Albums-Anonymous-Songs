@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { DrumInput } from "./DrumInput";
 import { GuitarInput } from "./GuitarInput";
 import type { LiveStatus } from "./useLiveCapture";
@@ -23,35 +23,20 @@ export function LiveInput({
   audioCtx,
   ensureAudioContext,
   activeDeckBpm,
-  liveSyncMs,
-  onLiveSyncChange,
 }: {
   audioCtx: AudioContext | null;
   ensureAudioContext: () => AudioContext;
   /** BPM of whichever deck the crossfader currently favours, for delay sync. */
   activeDeckBpm: number | null;
-  /** ms the decks are delayed so live playing lines up on the recorded output. */
-  liveSyncMs: number;
-  onLiveSyncChange: (ms: number) => void;
 }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [instrument, setInstrument] = useState<Instrument>("guitar");
   const [status, setStatus] = useState<LiveStatus>({
     enabled: false,
     latencyMs: null,
-    recommendedSyncMs: null,
   });
-  // Auto: the sync delay tracks the measured live-input latency. Flips to
-  // manual the moment the slider is touched; double-click hands it back.
-  const [syncAuto, setSyncAuto] = useState(true);
 
   const active = INSTRUMENTS.find((i) => i.id === instrument)!;
-
-  useEffect(() => {
-    if (syncAuto && status.recommendedSyncMs != null) {
-      onLiveSyncChange(status.recommendedSyncMs);
-    }
-  }, [syncAuto, status.recommendedSyncMs, onLiveSyncChange]);
 
   return (
     <div className="rounded-2xl border border-black/10 dark:border-white/10">
@@ -64,7 +49,14 @@ export function LiveInput({
           <span aria-hidden>{active.icon}</span>
           Live Input
           {status.enabled && (
-            <span className="rounded-full bg-foreground px-1.5 py-0.5 text-[9px] font-semibold text-background">
+            <span
+              className="rounded-full bg-foreground px-1.5 py-0.5 text-[9px] font-semibold text-background"
+              title={
+                status.latencyMs != null
+                  ? `Browser audio runs ~${status.latencyMs} ms behind real time. If you record the dry guitar off your interface separately, add roughly this as a sync offset to the decks / browser-audio source in your streaming software.`
+                  : undefined
+              }
+            >
               On
               {status.latencyMs != null ? ` · ~${status.latencyMs} ms` : ""}
             </span>
@@ -83,11 +75,7 @@ export function LiveInput({
                 key={i.id}
                 type="button"
                 onClick={() => {
-                  setStatus({
-                    enabled: false,
-                    latencyMs: null,
-                    recommendedSyncMs: null,
-                  });
+                  setStatus({ enabled: false, latencyMs: null });
                   setInstrument(i.id);
                 }}
                 className={`flex-1 rounded-lg border px-2 py-1 text-[10px] font-medium ${
@@ -102,31 +90,6 @@ export function LiveInput({
                 {i.label}
               </button>
             ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span
-              className="w-14 shrink-0 text-[10px] text-black/50 dark:text-white/50"
-              title="Delays the decks so a guitar/mic monitored through the browser lines up with the music on your recording or stream. Auto tracks the measured input latency; drag to fine-tune, double-click to return to Auto."
-            >
-              Sync{syncAuto ? " ·auto" : ""}
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={150}
-              step={1}
-              value={liveSyncMs}
-              onChange={(e) => {
-                setSyncAuto(false);
-                onLiveSyncChange(Number(e.target.value));
-              }}
-              onDoubleClick={() => setSyncAuto(true)}
-              className="flex-1 accent-foreground"
-            />
-            <span className="w-12 text-right text-[10px] tabular-nums text-black/40 dark:text-white/40">
-              {liveSyncMs} ms
-            </span>
           </div>
 
           {instrument === "guitar" && (

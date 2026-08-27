@@ -103,8 +103,6 @@ export const DjDeck = forwardRef<
     audioCtx: AudioContext | null;
     /** Creates the shared AudioContext on first use (from a user gesture). */
     ensureAudioContext: () => AudioContext;
-    /** Shared (latency-compensated) bus to route this deck into, if ready. */
-    musicDestination: AudioNode | null;
     /** This deck's target output gain (0..1), driven by the shared crossfader. */
     gain: number;
     tempo: number;
@@ -126,7 +124,6 @@ export const DjDeck = forwardRef<
     song,
     audioCtx,
     ensureAudioContext,
-    musicDestination,
     gain,
     tempo,
     onTempoChange,
@@ -282,7 +279,7 @@ export const DjDeck = forwardRef<
     highShelf.connect(flangerDelay);
     flangerDelay.connect(flangerFeedback).connect(flangerDelay);
     flangerDelay.connect(flangerWetGain).connect(deckGain);
-    deckGain.connect(musicDestination ?? audioCtx.destination);
+    deckGain.connect(audioCtx.destination);
 
     graphRef.current = {
       filter,

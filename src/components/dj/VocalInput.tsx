@@ -327,12 +327,10 @@ export function VocalInput({
     onStatusChange?.({
       enabled: capture.enabled,
       latencyMs: capture.latencyMs,
-      recommendedSyncMs: capture.recommendedSyncMs,
     });
   }, [
     capture.enabled,
     capture.latencyMs,
-    capture.recommendedSyncMs,
     onStatusChange,
   ]);
 

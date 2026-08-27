@@ -144,7 +144,7 @@ export function VocalInput({
   activeDeckBpm: number | null;
   onStatusChange?: (s: { enabled: boolean; latencyMs: number | null }) => void;
 }) {
-  const [level, setLevel] = useState(0.85);
+  const [level, setLevel] = useState(1);
   const [gateOn, setGateOn] = useState(false);
   const [gateThreshold, setGateThreshold] = useState(-48);
   const [compOn, setCompOn] = useState(true);
@@ -376,7 +376,8 @@ export function VocalInput({
       c.ratio.value = 4.5;
       c.attack.value = 0.004;
       c.release.value = 0.22;
-      chain.compMakeup.gain.value = 1.7;
+      // Generous makeup so a mic sits up against a mastered track.
+      chain.compMakeup.gain.value = 2.8;
     } else {
       c.threshold.value = 0;
       c.knee.value = 0;
@@ -480,7 +481,8 @@ export function VocalInput({
       <MixControls
         level={level}
         pan={pan}
-        levelDefault={0.85}
+        levelDefault={1}
+        levelMax={2.5}
         onLevel={setLevel}
         onPan={setPan}
       />

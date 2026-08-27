@@ -274,7 +274,7 @@ export function GuitarInput({
 }) {
   const [pedalsOpen, setPedalsOpen] = useState(false);
 
-  const [level, setLevel] = useState(0.8);
+  const [level, setLevel] = useState(1);
   const [pan, setPan] = useState(0);
   const [ampOn, setAmpOn] = useState(true);
   const [gateOn, setGateOn] = useState(false);
@@ -358,7 +358,9 @@ export function GuitarInput({
     preHighpass.type = "highpass";
     preHighpass.frequency.value = 85;
     const shaper = ctx.createWaveShaper();
-    shaper.oversample = "2x";
+    // "none" until drive is engaged — oversampling adds a little latency, and
+    // there's nothing to alias while the curve is null.
+    shaper.oversample = "none";
     const driveMid = ctx.createBiquadFilter();
     driveMid.type = "peaking";
     driveMid.frequency.value = 800;
@@ -651,7 +653,8 @@ export function GuitarInput({
       c.ratio.value = 4;
       c.attack.value = 0.003;
       c.release.value = 0.25;
-      chain.compMakeup.gain.value = 1.6;
+      // Generous makeup — a compressed guitar sits well below a mastered track.
+      chain.compMakeup.gain.value = 2.6;
     } else {
       c.threshold.value = 0;
       c.knee.value = 0;
@@ -664,6 +667,7 @@ export function GuitarInput({
     const chain = chainRef.current;
     if (!chain) return;
     chain.shaper.curve = driveOn ? makeDriveCurve(drive, distModel) : null;
+    chain.shaper.oversample = driveOn ? "2x" : "none";
     const voicing = VOICINGS[distModel];
     chain.preHighpass.frequency.value = driveOn ? voicing.highpass : 85;
     chain.driveMid.frequency.value = voicing.mid.freq;
@@ -802,7 +806,8 @@ export function GuitarInput({
       <MixControls
         level={level}
         pan={pan}
-        levelDefault={0.8}
+        levelDefault={1}
+        levelMax={2.5}
         onLevel={setLevel}
         onPan={setPan}
       />

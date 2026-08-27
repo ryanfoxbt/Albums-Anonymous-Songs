@@ -29,17 +29,20 @@ const panLabel = (pan: number) => {
   return pan < 0 ? `L${amt}` : `R${amt}`;
 };
 
-// Level + pan for the live instrument against the DJ music.
+// Level + pan for the live instrument against the DJ music. `levelMax` above 1
+// gives headroom to push a quiet live signal up to a mastered track.
 export function MixControls({
   level,
   pan,
   levelDefault,
+  levelMax = 1,
   onLevel,
   onPan,
 }: {
   level: number;
   pan: number;
   levelDefault: number;
+  levelMax?: number;
   onLevel: (value: number) => void;
   onPan: (value: number) => void;
 }) {
@@ -49,7 +52,7 @@ export function MixControls({
         label="Level"
         valueLabel={`${Math.round(level * 100)}%`}
         min={0}
-        max={1}
+        max={levelMax}
         step={0.01}
         value={level}
         onChange={(e) => onLevel(Number(e.target.value))}

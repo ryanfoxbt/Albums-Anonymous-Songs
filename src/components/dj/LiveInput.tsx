@@ -22,11 +22,16 @@ export function LiveInput({
   audioCtx,
   ensureAudioContext,
   activeDeckBpm,
+  liveSyncMs,
+  onLiveSyncChange,
 }: {
   audioCtx: AudioContext | null;
   ensureAudioContext: () => AudioContext;
   /** BPM of whichever deck the crossfader currently favours, for delay sync. */
   activeDeckBpm: number | null;
+  /** ms the decks are delayed so live playing lines up on the recorded output. */
+  liveSyncMs: number;
+  onLiveSyncChange: (ms: number) => void;
 }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [instrument, setInstrument] = useState<Instrument>("guitar");
@@ -82,6 +87,28 @@ export function LiveInput({
                 {i.label}
               </button>
             ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span
+              className="w-14 shrink-0 text-[10px] text-black/50 dark:text-white/50"
+              title="Delays the decks so a guitar/mic monitored through the browser lines up with the music on your recording or stream. Raise until your playing sits on the beat in playback."
+            >
+              Sync
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={150}
+              step={5}
+              value={liveSyncMs}
+              onChange={(e) => onLiveSyncChange(Number(e.target.value))}
+              onDoubleClick={() => onLiveSyncChange(35)}
+              className="flex-1 accent-foreground"
+            />
+            <span className="w-12 text-right text-[10px] tabular-nums text-black/40 dark:text-white/40">
+              {liveSyncMs} ms
+            </span>
           </div>
 
           {instrument === "guitar" && (

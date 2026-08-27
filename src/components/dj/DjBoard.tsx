@@ -35,9 +35,18 @@ export function DjBoard({
   const [bpmB, setBpmB] = useState<number | null>(null);
   const [crossfader, setCrossfader] = useState(0.5);
   const [autoDj, setAutoDj] = useState(false);
+  // Delay the decks (not the live input) so a guitar/mic monitored through the
+  // browser lines up with the music on the recorded/streamed output. The live
+  // path carries capture + processing latency the file decks don't.
+  const [liveSyncMs, setLiveSyncMs] = useState(35);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [audioCtx, setAudioCtx] = useState<AudioContext | null>(null);
+  // Shared bus every deck feeds into, delayed by `liveSyncMs` before the
+  // destination. The live input connects straight to `ctx.destination`.
+  const [musicBus, setMusicBus] = useState<GainNode | null>(null);
+  const musicDelayNodeRef = useRef<DelayNode | null>(null);
+  const liveSyncMsRef = useRef(liveSyncMs);
 
   const deckARef = useRef<DjDeckHandle>(null);
   const deckBRef = useRef<DjDeckHandle>(null);
@@ -57,11 +66,29 @@ export function DjBoard({
   function ensureAudioContext(): AudioContext {
     if (!audioCtxRef.current) {
       const ctx = new AudioContext({ latencyHint: "interactive" });
+      const bus = ctx.createGain();
+      const delay = ctx.createDelay(0.5);
+      delay.delayTime.value = liveSyncMsRef.current / 1000;
+      bus.connect(delay).connect(ctx.destination);
+      musicDelayNodeRef.current = delay;
       audioCtxRef.current = ctx;
       setAudioCtx(ctx);
+      setMusicBus(bus);
     }
     return audioCtxRef.current;
   }
+
+  useEffect(() => {
+    liveSyncMsRef.current = liveSyncMs;
+    const delay = musicDelayNodeRef.current;
+    if (delay && audioCtx) {
+      delay.delayTime.setTargetAtTime(
+        liveSyncMs / 1000,
+        audioCtx.currentTime,
+        0.03,
+      );
+    }
+  }, [liveSyncMs, audioCtx]);
 
   function loadSong(deck: "A" | "B", songId: string) {
     const song = songsById.get(songId);
@@ -212,6 +239,7 @@ export function DjBoard({
             song={deckASong}
             audioCtx={audioCtx}
             ensureAudioContext={ensureAudioContext}
+            musicDestination={musicBus}
             gain={gainA}
             tempo={tempoA}
             onTempoChange={setTempoA}
@@ -229,6 +257,7 @@ export function DjBoard({
             song={deckBSong}
             audioCtx={audioCtx}
             ensureAudioContext={ensureAudioContext}
+            musicDestination={musicBus}
             gain={gainB}
             tempo={tempoB}
             onTempoChange={setTempoB}
@@ -286,6 +315,8 @@ export function DjBoard({
           audioCtx={audioCtx}
           ensureAudioContext={ensureAudioContext}
           activeDeckBpm={activeDeckBpm}
+          liveSyncMs={liveSyncMs}
+          onLiveSyncChange={setLiveSyncMs}
         />
       </div>
 

@@ -207,6 +207,7 @@ export function DrumInput({
         level={level}
         pan={pan}
         levelDefault={0.8}
+        levelMax={2}
         onLevel={setLevel}
         onPan={setPan}
       />

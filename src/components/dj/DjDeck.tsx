@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { getEstimatedBpm, getImpulseResponse, loadAudioBuffer } from "./audioEngine";
+import { getImpulseResponse, loadTrack } from "./audioEngine";
 import { Turntable } from "./Turntable";
 import { DJ_DRAG_MIME, type DjSong } from "./types";
 import { Waveform } from "./Waveform";
@@ -16,6 +16,68 @@ const FLANGER_RATE_HZ = 0.22;
 export type DjDeckHandle = {
   play: () => void;
   pause: () => void;
+};
+
+type ScratchPattern = {
+  label: string;
+  duration: number;
+  /** [secondsFromStart, playbackRate] breakpoints, ramped between. */
+  rate: [number, number][];
+  /** Optional [secondsFromStart, gain 0|1] step-gate, for a choppy "transformer" cut. */
+  gate?: [number, number][];
+};
+
+// Classic scratch moves, expressed as a playback-rate gesture on a short-lived
+// AudioBufferSourceNode (which — unlike the deck's <audio> element — supports
+// negative rates, i.e. actual reverse playback). Each pattern nets out close
+// to its starting position, so the deck can just resume from there after.
+const SCRATCH_PATTERNS: Record<"A" | "B" | "C", ScratchPattern> = {
+  A: {
+    label: "Baby scratch",
+    duration: 0.35,
+    rate: [
+      [0, 0],
+      [0.09, 3],
+      [0.22, -3],
+      [0.35, 0],
+    ],
+  },
+  B: {
+    label: "Scribble scratch",
+    duration: 0.55,
+    rate: [
+      [0, 0],
+      [0.06, 4.5],
+      [0.14, -4.5],
+      [0.22, 4.5],
+      [0.3, -4.5],
+      [0.38, 4.5],
+      [0.46, -4.5],
+      [0.55, 0],
+    ],
+  },
+  C: {
+    label: "Transformer scratch",
+    duration: 0.5,
+    rate: [
+      [0, 0],
+      [0.1, 3],
+      [0.25, -3],
+      [0.4, 3],
+      [0.5, 0],
+    ],
+    gate: [
+      [0, 1],
+      [0.06, 0],
+      [0.1, 1],
+      [0.18, 0],
+      [0.22, 1],
+      [0.3, 0],
+      [0.34, 1],
+      [0.42, 0],
+      [0.46, 1],
+    ],
+  },
 };
 
 function MiniSlider({
@@ -130,6 +192,7 @@ export const DjDeck = forwardRef<
     deckGain: GainNode;
   } | null>(null);
   const loadedSongIdRef = useRef<string | null>(null);
+  const scratchStopRef = useRef<(() => void) | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -145,6 +208,7 @@ export const DjDeck = forwardRef<
   const [trim, setTrim] = useState(1);
   const [cuePoint, setCuePoint] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [scratching, setScratching] = useState(false);
 
   useImperativeHandle(ref, () => ({
     play: () => {
@@ -279,6 +343,7 @@ export const DjDeck = forwardRef<
     if (!audio || !song || loadedSongIdRef.current === song.id) return;
     loadedSongIdRef.current = song.id;
 
+    scratchStopRef.current?.();
     audio.pause();
     audio.src = song.audioUrl;
     audio.currentTime = 0;
@@ -295,13 +360,12 @@ export const DjDeck = forwardRef<
     onBpmChange?.(null);
 
     if (audioCtx) {
-      loadAudioBuffer(audioCtx, song.audioUrl)
-        .then((buf) => {
+      loadTrack(audioCtx, song.audioUrl)
+        .then(({ buffer: buf, bpm: tagBpm }) => {
           if (loadedSongIdRef.current !== song.id) return;
           setBuffer(buf);
-          const estimated = getEstimatedBpm(buf, song.audioUrl);
-          setBpm(estimated);
-          onBpmChange?.(estimated);
+          setBpm(tagBpm);
+          onBpmChange?.(tagBpm);
         })
         .catch(() => {
           // Waveform/BPM are nice-to-haves; playback still works without them.
@@ -310,12 +374,70 @@ export const DjDeck = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [song, audioCtx]);
 
+  // Stop any in-flight scratch gesture when the deck unmounts.
+  useEffect(() => {
+    return () => scratchStopRef.current?.();
+  }, []);
+
   function togglePlay() {
     const audio = audioRef.current;
     if (!audio || !song) return;
     audioCtx?.resume();
     if (audio.paused) audio.play();
     else audio.pause();
+  }
+
+  function triggerScratch(patternKey: "A" | "B" | "C") {
+    const audio = audioRef.current;
+    const graph = graphRef.current;
+    if (!audio || !audioCtx || !graph || !buffer || scratching) return;
+
+    audioCtx.resume();
+    const startPosition = Math.min(audio.currentTime, buffer.duration - 0.05);
+    const wasPlaying = !audio.paused;
+    audio.pause();
+
+    const pattern = SCRATCH_PATTERNS[patternKey];
+    const now = audioCtx.currentTime;
+
+    const scratchGain = audioCtx.createGain();
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(scratchGain).connect(graph.deckGain);
+
+    source.playbackRate.setValueAtTime(pattern.rate[0][1], now);
+    for (const [t, rate] of pattern.rate) {
+      source.playbackRate.linearRampToValueAtTime(rate, now + t);
+    }
+
+    if (pattern.gate) {
+      scratchGain.gain.setValueAtTime(pattern.gate[0][1], now);
+      for (const [t, level] of pattern.gate) {
+        scratchGain.gain.setValueAtTime(level, now + t);
+      }
+    }
+
+    source.start(now, Math.max(0, startPosition));
+    setScratching(true);
+
+    const finish = () => {
+      scratchStopRef.current = null;
+      try {
+        source.stop();
+      } catch {
+        // Already stopped — harmless.
+      }
+      source.disconnect();
+      scratchGain.disconnect();
+      setScratching(false);
+      audio.currentTime = startPosition;
+      if (wasPlaying) audio.play();
+    };
+    const timeoutId = window.setTimeout(finish, pattern.duration * 1000 + 30);
+    scratchStopRef.current = () => {
+      window.clearTimeout(timeoutId);
+      finish();
+    };
   }
 
   function jumpToCue() {
@@ -404,8 +526,11 @@ export const DjDeck = forwardRef<
           </span>
         )}
         {bpm && (
-          <span className="shrink-0 rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-black/50 dark:bg-white/10 dark:text-white/50">
-            ~{bpm} BPM
+          <span
+            className="shrink-0 rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-black/50 dark:bg-white/10 dark:text-white/50"
+            title="From this file's ID3 tag"
+          >
+            {bpm} BPM
           </span>
         )}
       </div>
@@ -513,6 +638,25 @@ export const DjDeck = forwardRef<
           mix={flangerMix}
           onMixChange={setFlangerMix}
         />
+        <div className="flex items-center gap-2">
+          <span className="w-16 shrink-0 text-[10px] font-medium text-black/50 dark:text-white/50">
+            Scratch
+          </span>
+          <div className="grid flex-1 grid-cols-3 gap-1.5">
+            {(["A", "B", "C"] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => triggerScratch(key)}
+                disabled={!song || !buffer || scratching}
+                title={SCRATCH_PATTERNS[key].label}
+                className={`${buttonClass} h-7`}
+              >
+                {key}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

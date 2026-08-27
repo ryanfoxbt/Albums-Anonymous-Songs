@@ -213,6 +213,28 @@ export function makeDriveCurve(
 }
 
 /**
+ * Output-bus safety curve for a WaveShaperNode: linear below ~-3 dBFS, then a
+ * soft knee to a hard ceiling, so an accidental feedback loop (input + output
+ * on the same speakers) is squashed instead of howling. No oversampling needed
+ * — this adds zero latency, unlike a DynamicsCompressor.
+ */
+export function makeSafetyCurve(): Float32Array<ArrayBuffer> {
+  const n = 1024;
+  const knee = 0.7;
+  const curve = new Float32Array(new ArrayBuffer(n * 4));
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    const mag = Math.abs(x);
+    curve[i] =
+      mag <= knee
+        ? x
+        : Math.sign(x) *
+          (knee + (1 - knee) * Math.tanh((mag - knee) / (1 - knee)));
+  }
+  return curve;
+}
+
+/**
  * Rough monophonic pitch estimate via band-limited autocorrelation — enough
  * to drive a sub-octave oscillator from a single-note guitar line. Returns
  * the fundamental in Hz, or null when the input is too quiet or unpitched.

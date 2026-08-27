@@ -1,18 +1,21 @@
 import Link from "next/link";
 import { AnalyticsTabs } from "@/components/admin/AnalyticsTabs";
+import { AnalyticsTrendChart } from "@/components/admin/AnalyticsTrendChart";
 import { StatCard } from "@/components/admin/StatCard";
 import {
   getOverviewStats,
   getRecentSubscribers,
   getSongLeaderboard,
+  getTimeSeries,
   getTopLocations,
   getTopPages,
   getTopSources,
 } from "@/lib/analyticsQueries";
-import { RANGE_PRESETS, resolveDateRange } from "@/lib/dateRange";
+import { previousPeriod, RANGE_PRESETS, resolveDateRange } from "@/lib/dateRange";
 import {
   formatDateRange,
   formatDateTime,
+  formatDelta,
   formatDuration,
   formatListeningTime,
   formatLocation,
@@ -38,9 +41,11 @@ export default async function AdminAnalyticsPage({
     to: toParam,
   });
 
-  const [stats, topPages, topSources, topSongs, topLocations, recentSubscribers] =
+  const [stats, prevStats, series, topPages, topSources, topSongs, topLocations, recentSubscribers] =
     await Promise.all([
       getOverviewStats(range),
+      getOverviewStats(previousPeriod(range)),
+      getTimeSeries(range),
       getTopPages(range, 8),
       getTopSources(range, 8),
       getSongLeaderboard(range, 5),
@@ -106,22 +111,40 @@ export default async function AdminAnalyticsPage({
       </p>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Visitors" value={String(stats.uniqueVisitors)} />
-        <StatCard label="Sessions" value={String(stats.totalSessions)} />
-        <StatCard label="Pageviews" value={String(stats.totalPageviews)} />
+        <StatCard
+          label="Visitors"
+          value={String(stats.uniqueVisitors)}
+          delta={formatDelta(stats.uniqueVisitors, prevStats.uniqueVisitors)}
+        />
+        <StatCard
+          label="Sessions"
+          value={String(stats.totalSessions)}
+          delta={formatDelta(stats.totalSessions, prevStats.totalSessions)}
+        />
+        <StatCard
+          label="Pageviews"
+          value={String(stats.totalPageviews)}
+          delta={formatDelta(stats.totalPageviews, prevStats.totalPageviews)}
+        />
         <StatCard
           label="Avg. session"
           value={formatDuration(stats.avgSessionDurationMs)}
+          delta={formatDelta(stats.avgSessionDurationMs, prevStats.avgSessionDurationMs)}
         />
         <StatCard label="Bounce rate" value={formatPercent(stats.bounceRate)} />
         <StatCard
           label="New vs. returning"
           value={`${stats.newSessions} / ${stats.returningSessions}`}
         />
-        <StatCard label="Song plays" value={String(stats.totalSongPlays)} />
+        <StatCard
+          label="Song plays"
+          value={String(stats.totalSongPlays)}
+          delta={formatDelta(stats.totalSongPlays, prevStats.totalSongPlays)}
+        />
         <StatCard
           label="Listening time"
           value={formatListeningTime(stats.totalListeningSeconds)}
+          delta={formatDelta(stats.totalListeningSeconds, prevStats.totalListeningSeconds)}
         />
         <StatCard
           label="YouTube clicks"
@@ -135,8 +158,15 @@ export default async function AdminAnalyticsPage({
           label="Subscribers"
           value={String(stats.totalSubscribersAllTime)}
           sublabel={`+${stats.newSubscribers} in range`}
+          delta={formatDelta(stats.newSubscribers, prevStats.newSubscribers)}
         />
       </div>
+
+      <p className="text-xs text-black/40 dark:text-white/40">
+        Change vs. the previous {formatDateRange(previousPeriod(range))}
+      </p>
+
+      <AnalyticsTrendChart data={series} />
 
       <div className="grid gap-6 sm:grid-cols-2">
         <section className="flex flex-col gap-2">

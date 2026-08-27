@@ -38,7 +38,7 @@ function pacificOffsetMsAt(utcInstantMs: number): number {
   return asIfUtc - utcInstantMs;
 }
 
-function startOfPacificDay(date: Date): Date {
+export function startOfPacificDay(date: Date): Date {
   const offset = pacificOffsetMsAt(date.getTime());
   const zoned = new Date(date.getTime() + offset);
   const zonedMidnightAsUtc = Date.UTC(
@@ -64,6 +64,30 @@ export function daysForRange(range: DateRange): number {
     1,
     Math.ceil((range.to.getTime() - range.from.getTime()) / (24 * 60 * 60 * 1000)),
   );
+}
+
+/** The immediately preceding period of equal length, for growth comparisons. */
+export function previousPeriod(range: DateRange): DateRange {
+  const durationMs = range.to.getTime() - range.from.getTime();
+  const to = new Date(range.from.getTime() - 1);
+  const from = new Date(to.getTime() - durationMs);
+  return { from, to };
+}
+
+/** YYYY-MM-DD key for the Pacific calendar day a timestamp falls on. */
+export function pacificDayKey(date: Date): string {
+  return startOfPacificDay(date).toISOString().slice(0, 10);
+}
+
+/** Every Pacific calendar day in the range, inclusive, as YYYY-MM-DD keys. */
+export function enumeratePacificDays(range: DateRange): string[] {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const end = startOfPacificDay(range.to).getTime();
+  const keys: string[] = [];
+  for (let cursor = startOfPacificDay(range.from).getTime(); cursor <= end; cursor += dayMs) {
+    keys.push(new Date(cursor).toISOString().slice(0, 10));
+  }
+  return keys;
 }
 
 /**

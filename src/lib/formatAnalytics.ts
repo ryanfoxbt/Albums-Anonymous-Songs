@@ -28,6 +28,22 @@ export function formatPercent(fraction: number): string {
   return `${Math.round(fraction * 100)}%`;
 }
 
+export type Delta = { text: string; direction: "up" | "down" | "flat" };
+
+/** Change vs. a prior-period value, for growth badges. Null when there's nothing to compare. */
+export function formatDelta(current: number, previous: number): Delta | null {
+  if (previous === 0) {
+    return current === 0 ? null : { text: "New", direction: "up" };
+  }
+  const change = (current - previous) / previous;
+  if (Math.abs(change) < 0.005) return { text: "±0%", direction: "flat" };
+  const pct = Math.round(Math.abs(change) * 100);
+  return {
+    text: `${change > 0 ? "+" : "−"}${pct}%`,
+    direction: change > 0 ? "up" : "down",
+  };
+}
+
 export function formatLocation(location: {
   city?: string | null;
   region?: string | null;

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { DateRange } from "@/lib/dateRange";
+import { enumeratePacificDays, pacificDayKey, type DateRange } from "@/lib/dateRange";
 
 function sessionDurationMs(session: {
   startedAt: Date;
@@ -97,6 +97,76 @@ export async function getOverviewStats(range: DateRange): Promise<OverviewStats>
     totalSubscribersAllTime,
     newSubscribers,
   };
+}
+
+export type DailyMetrics = {
+  date: string; // YYYY-MM-DD, Pacific calendar day
+  visitors: number;
+  sessions: number;
+  pageviews: number;
+  songPlays: number;
+  listeningMinutes: number;
+};
+
+/** Daily counts across the range, one bucket per Pacific calendar day (zero-filled). */
+export async function getTimeSeries(range: DateRange): Promise<DailyMetrics[]> {
+  const [sessions, pageviews, songPlays] = await Promise.all([
+    prisma.visitSession.findMany({
+      where: { startedAt: { gte: range.from, lte: range.to } },
+      select: { startedAt: true, visitorId: true },
+    }),
+    prisma.pageView.findMany({
+      where: { visitedAt: { gte: range.from, lte: range.to } },
+      select: { visitedAt: true },
+    }),
+    prisma.songPlayEvent.findMany({
+      where: { playedAt: { gte: range.from, lte: range.to } },
+      select: { playedAt: true, listenedSeconds: true },
+    }),
+  ]);
+
+  const days = enumeratePacificDays(range);
+  const buckets = new Map(
+    days.map((day) => [
+      day,
+      {
+        visitors: new Set<string>(),
+        sessions: 0,
+        pageviews: 0,
+        songPlays: 0,
+        listeningSeconds: 0,
+      },
+    ]),
+  );
+
+  for (const session of sessions) {
+    const bucket = buckets.get(pacificDayKey(session.startedAt));
+    if (!bucket) continue;
+    bucket.sessions += 1;
+    bucket.visitors.add(session.visitorId);
+  }
+  for (const pageview of pageviews) {
+    const bucket = buckets.get(pacificDayKey(pageview.visitedAt));
+    if (bucket) bucket.pageviews += 1;
+  }
+  for (const play of songPlays) {
+    const bucket = buckets.get(pacificDayKey(play.playedAt));
+    if (!bucket) continue;
+    bucket.songPlays += 1;
+    bucket.listeningSeconds += play.listenedSeconds ?? 0;
+  }
+
+  return days.map((day) => {
+    const bucket = buckets.get(day)!;
+    return {
+      date: day,
+      visitors: bucket.visitors.size,
+      sessions: bucket.sessions,
+      pageviews: bucket.pageviews,
+      songPlays: bucket.songPlays,
+      listeningMinutes: Math.round(bucket.listeningSeconds / 60),
+    };
+  });
 }
 
 export type TopPage = {

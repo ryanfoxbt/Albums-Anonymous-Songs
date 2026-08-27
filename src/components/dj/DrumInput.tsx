@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { connectOutputBus, getImpulseResponse } from "./audioEngine";
 import { CaptureShell } from "./CaptureShell";
 import { MiniSlider, MixControls } from "./controls";
-import { useLiveCapture } from "./useLiveCapture";
+import { type LiveStatus, useLiveCapture } from "./useLiveCapture";
 
 // An electronic drum kit already makes its own sounds, so this stays minimal:
 // capture the module's stereo output, glue it with a light bus compressor +
@@ -53,7 +53,7 @@ export function DrumInput({
 }: {
   audioCtx: AudioContext | null;
   ensureAudioContext: () => AudioContext;
-  onStatusChange?: (s: { enabled: boolean; latencyMs: number | null }) => void;
+  onStatusChange?: (s: LiveStatus) => void;
 }) {
   const [level, setLevel] = useState(0.8);
   const [compOn, setCompOn] = useState(false);
@@ -137,8 +137,14 @@ export function DrumInput({
     onStatusChange?.({
       enabled: capture.enabled,
       latencyMs: capture.latencyMs,
+      recommendedSyncMs: capture.recommendedSyncMs,
     });
-  }, [capture.enabled, capture.latencyMs, onStatusChange]);
+  }, [
+    capture.enabled,
+    capture.latencyMs,
+    capture.recommendedSyncMs,
+    onStatusChange,
+  ]);
 
   useEffect(() => {
     const chain = chainRef.current;

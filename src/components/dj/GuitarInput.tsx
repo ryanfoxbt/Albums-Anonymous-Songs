@@ -12,7 +12,7 @@ import {
 } from "./audioEngine";
 import { CaptureShell } from "./CaptureShell";
 import { FxToggle, MiniSlider, MixControls } from "./controls";
-import { useLiveCapture } from "./useLiveCapture";
+import { type LiveStatus, useLiveCapture } from "./useLiveCapture";
 
 // A guitar (or any line input) run through a small pedalboard of native Web
 // Audio nodes, mixed into the same AudioContext the decks use so it blends
@@ -108,6 +108,8 @@ const MOD_OFF = {
 
 const PRESETS: Preset[] = [
   {
+    // Fully dry — no time-based effects — so it's the honest baseline for
+    // checking that the live-input sync lines up.
     name: "Clean DI",
     gateOn: false, compOn: true, driveOn: false, drive: 0.15,
     distModel: "overdrive", tone: 0.7,
@@ -115,7 +117,7 @@ const PRESETS: Preset[] = [
     chorusOn: false, chorusMix: 0.25,
     ...MOD_OFF,
     delayOn: false, delayMix: 0.2, delayDivision: 3, delayFeedback: 0.3,
-    reverbOn: true, reverbMix: 0.16,
+    reverbOn: false, reverbMix: 0.16,
   },
   {
     name: "Crunch",
@@ -270,7 +272,7 @@ export function GuitarInput({
   audioCtx: AudioContext | null;
   ensureAudioContext: () => AudioContext;
   activeDeckBpm: number | null;
-  onStatusChange?: (s: { enabled: boolean; latencyMs: number | null }) => void;
+  onStatusChange?: (s: LiveStatus) => void;
 }) {
   const [pedalsOpen, setPedalsOpen] = useState(false);
 
@@ -569,8 +571,14 @@ export function GuitarInput({
     onStatusChange?.({
       enabled: capture.enabled,
       latencyMs: capture.latencyMs,
+      recommendedSyncMs: capture.recommendedSyncMs,
     });
-  }, [capture.enabled, capture.latencyMs, onStatusChange]);
+  }, [
+    capture.enabled,
+    capture.latencyMs,
+    capture.recommendedSyncMs,
+    onStatusChange,
+  ]);
 
   // Gate / auto-wah / octave rAF loop — runs only while the input is live.
   useEffect(() => {

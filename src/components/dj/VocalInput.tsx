@@ -9,7 +9,7 @@ import {
 } from "./audioEngine";
 import { CaptureShell } from "./CaptureShell";
 import { FxToggle, MiniSlider, MixControls } from "./controls";
-import { useLiveCapture } from "./useLiveCapture";
+import { type LiveStatus, useLiveCapture } from "./useLiveCapture";
 
 // A vocal mic run through a broadcast-style chain — highpass, gate, compressor,
 // static de-esser, 3-band EQ, optional lo-fi grit — then parallel doubler,
@@ -142,7 +142,7 @@ export function VocalInput({
   audioCtx: AudioContext | null;
   ensureAudioContext: () => AudioContext;
   activeDeckBpm: number | null;
-  onStatusChange?: (s: { enabled: boolean; latencyMs: number | null }) => void;
+  onStatusChange?: (s: LiveStatus) => void;
 }) {
   const [level, setLevel] = useState(1);
   const [gateOn, setGateOn] = useState(false);
@@ -327,8 +327,14 @@ export function VocalInput({
     onStatusChange?.({
       enabled: capture.enabled,
       latencyMs: capture.latencyMs,
+      recommendedSyncMs: capture.recommendedSyncMs,
     });
-  }, [capture.enabled, capture.latencyMs, onStatusChange]);
+  }, [
+    capture.enabled,
+    capture.latencyMs,
+    capture.recommendedSyncMs,
+    onStatusChange,
+  ]);
 
   // Noise-gate rAF loop — runs only while the mic is live.
   useEffect(() => {

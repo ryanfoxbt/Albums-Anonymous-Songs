@@ -46,7 +46,7 @@ export default function AboutPage() {
             Listen to the songs
           </Link>
           <Link
-            href="/watch"
+            href="/"
             className="rounded-full border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
           >
             Watch the podcast

@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "25mb",
     },
   },
+  async redirects() {
+    return [
+      {
+        // The podcast platform picker is now the home page. Keep old
+        // /watch links (and any external inbound links) working.
+        source: "/watch",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

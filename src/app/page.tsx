@@ -1,5 +1,5 @@
-import { EntryChoiceLink } from "@/components/landing/EntryChoiceLink";
-import { HeroTitleAnimation } from "@/components/landing/HeroTitleAnimation";
+import Link from "next/link";
+import { PodcastPlatformIcon } from "@/components/icons/PodcastPlatformIcon";
 import { PODCAST_PLATFORMS } from "@/lib/podcastPlatforms";
 import { prisma } from "@/lib/prisma";
 
@@ -14,6 +14,11 @@ export default async function Home() {
     select: { href: true },
   });
 
+  const podcastSameAs = [
+    ...PODCAST_PLATFORMS.map((platform) => platform.href),
+    ...socialLinks.map((link) => link.href),
+  ];
+
   const organizationJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -21,15 +26,22 @@ export default async function Home() {
     url: "https://albumsanonymous.com",
     description:
       "Funny original songs under parody artists, plus the comedy podcast where they're born.",
-    sameAs: [
-      ...PODCAST_PLATFORMS.map((platform) => platform.href),
-      ...socialLinks.map((link) => link.href),
-    ],
+    sameAs: podcastSameAs,
     parentOrganization: {
       "@type": "Organization",
       name: "Permanent Records LLC",
       url: "https://www.permrecords.com/",
     },
+  };
+
+  const podcastJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "PodcastSeries",
+    name: "Albums Anonymous",
+    description:
+      "A comedy music podcast where classic albums get the parody-song treatment.",
+    url: "https://albumsanonymous.com",
+    sameAs: PODCAST_PLATFORMS.map((platform) => platform.href),
   };
 
   return (
@@ -38,33 +50,44 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(podcastJsonLd) }}
+      />
       <div className="flex w-full max-w-sm flex-col items-center gap-8 text-center">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold tracking-tight">
             Albums <span className="text-[#F760D6]">Anonymous</span>
           </h1>
           <p className="text-sm text-black/60 dark:text-white/60">
-            Funny original songs meets vinyl appreciation.
+            The comedy music podcast. Pick where you want to watch or listen.
           </p>
-          <HeroTitleAnimation />
         </div>
 
         <div className="flex w-full flex-col gap-4">
-          <EntryChoiceLink
-            href="/listen"
-            choice="listen"
-            className="rounded-2xl bg-black px-6 py-5 text-base font-semibold text-white shadow-sm transition hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
-          >
-            Listen to the Songs
-          </EntryChoiceLink>
-          <EntryChoiceLink
-            href="/watch"
-            choice="watch"
-            className="rounded-2xl border border-black/15 px-6 py-5 text-base font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-          >
-            Watch the Podcast
-          </EntryChoiceLink>
+          {PODCAST_PLATFORMS.map((platform) => (
+            <a
+              key={platform.name}
+              href={platform.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-3 rounded-2xl border border-black/15 px-6 py-5 text-base font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            >
+              <PodcastPlatformIcon
+                slug={platform.slug}
+                className="h-5 w-5 shrink-0"
+              />
+              {platform.name}
+            </a>
+          ))}
         </div>
+
+        <Link
+          href="/listen"
+          className="text-xs font-medium text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white"
+        >
+          Or listen to the songs
+        </Link>
       </div>
     </div>
   );

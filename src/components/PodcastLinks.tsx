@@ -1,3 +1,4 @@
+import { PodcastPlatformIcon } from "@/components/icons/PodcastPlatformIcon";
 import { PODCAST_PLATFORMS } from "@/lib/podcastPlatforms";
 
 export function PodcastLinks() {
@@ -13,8 +14,12 @@ export function PodcastLinks() {
             href={platform.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-black/5 px-3 py-1 text-xs font-medium hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20"
+            className="flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1 text-xs font-medium hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20"
           >
+            <PodcastPlatformIcon
+              slug={platform.slug}
+              className="h-3.5 w-3.5 shrink-0"
+            />
             {platform.name}
           </a>
         ))}

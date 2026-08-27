@@ -9,6 +9,13 @@ import type { DjSong } from "./types";
 import type { SaveSongBpmResult } from "@/app/(main)/admin/dj/actions";
 
 const AUTO_DJ_TRANSITION_MS = 5000;
+const STORAGE_KEY = "dj-board-state-v1";
+
+type PersistedState = {
+  deckASongId: string | null;
+  deckBSongId: string | null;
+  crossfader: number;
+};
 
 export function DjBoard({
   songs,
@@ -35,6 +42,7 @@ export function DjBoard({
   const deckBRef = useRef<DjDeckHandle>(null);
   const transitionRef = useRef<number | null>(null);
   const kickstartedRef = useRef(false);
+  const hydratedRef = useRef(false);
   // Auto DJ shuffle bag: ids already played in the current cycle. A track
   // won't be picked again until every song has had a turn.
   const playedIdsRef = useRef<Set<string>>(new Set());
@@ -61,6 +69,47 @@ export function DjBoard({
     if (deck === "A") setDeckASong(song);
     else setDeckBSong(song);
   }
+
+  // Restore the decks + crossfader from the last visit so a refresh doesn't
+  // wipe the session. Runs once, after mount, so server and first client
+  // render still match. Tracks are only re-cued, never auto-played.
+  /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect --
+     one-shot hydration from localStorage on mount, guarded by hydratedRef */
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as Partial<PersistedState>;
+      if (saved.deckASongId && songsById.has(saved.deckASongId)) {
+        loadSong("A", saved.deckASongId);
+      }
+      if (saved.deckBSongId && songsById.has(saved.deckBSongId)) {
+        loadSong("B", saved.deckBSongId);
+      }
+      if (typeof saved.crossfader === "number") {
+        setCrossfader(Math.min(1, Math.max(0, saved.crossfader)));
+      }
+    } catch {
+      // Corrupt or unavailable storage — start fresh.
+    }
+  }, [songsById]);
+  /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    try {
+      const state: PersistedState = {
+        deckASongId: deckASong?.id ?? null,
+        deckBSongId: deckBSong?.id ?? null,
+        crossfader,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // Storage full or blocked — persistence is best-effort.
+    }
+  }, [deckASong, deckBSong, crossfader]);
 
   // Picks the next Auto DJ track from the shuffle bag: never replays a song
   // until the whole library has cycled. `excludeIds` (the decks currently in

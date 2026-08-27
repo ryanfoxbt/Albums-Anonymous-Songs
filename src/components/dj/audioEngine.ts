@@ -341,6 +341,85 @@ export type AudioContextWithSink = AudioContext & {
   sinkId?: string;
 };
 
+// Label fragments that point at (or away from) an outboard USB/Thunderbolt
+// audio interface, used to auto-pick capture + playback devices.
+const INTERFACE_HINTS = [
+  "scarlett", "focusrite", "clarett", "saffire", "2i2", "4i4", "8i6", "18i",
+  "behringer", "umc", "u-phoria", "uphoria", "presonus", "audiobox", "studio 24",
+  "studio 26", "studio 68", "motu", "audient", "evo 4", "evo 8", "id4", "id14",
+  "id44", "steinberg", "ur22", "ur44", "ur12", "universal audio", "apollo",
+  "volt 1", "volt 2", "volt 4", "ssl 2", "ssl2", "komplete audio", "roland",
+  "rubix", "tascam", "us-1x2", "us-2x2", "us-4x4", "zoom uac", "uac-2", "uac-8",
+  "m-audio", "air 192", "m-track", "arturia", "minifuse", "line 6", "helix",
+  "hx stomp", "pod go", "audio interface", "usb audio codec", "usb audio device",
+];
+const NON_INTERFACE_HINTS = [
+  "macbook", "built-in", "built in", "imac", "display audio", "webcam", "camera",
+  "airpods", "bluetooth", "headset", "communications", "realtek",
+  "high definition audio", "hands-free", "virtual",
+];
+
+function scoreDeviceLabel(label: string): number {
+  const l = label.toLowerCase();
+  let score = 0;
+  if (INTERFACE_HINTS.some((h) => l.includes(h))) score += 3;
+  if (NON_INTERFACE_HINTS.some((h) => l.includes(h))) score -= 4;
+  return score;
+}
+
+/**
+ * Best guess at the capture + playback device IDs for a plugged-in audio
+ * interface: prefer an input whose label looks like an interface, then pair
+ * the output on the same physical device (shared `groupId`), falling back to
+ * the best-scoring output label. Returns empty strings when nothing clearly
+ * beats the system default — e.g. before mic permission, when labels are
+ * blank — so callers can leave the OS default in place.
+ */
+export function pickAudioInterface(devices: MediaDeviceInfo[]): {
+  inputId: string;
+  outputId: string;
+} {
+  const usable = (kind: MediaDeviceKind) =>
+    devices.filter(
+      (d) =>
+        d.kind === kind &&
+        d.deviceId &&
+        d.deviceId !== "communications" &&
+        d.deviceId !== "default",
+    );
+
+  let bestInput: MediaDeviceInfo | null = null;
+  let bestInputScore = 0;
+  for (const d of usable("audioinput")) {
+    if (!d.label) continue;
+    const score = scoreDeviceLabel(d.label);
+    if (score > bestInputScore) {
+      bestInputScore = score;
+      bestInput = d;
+    }
+  }
+  if (!bestInput) return { inputId: "", outputId: "" };
+
+  const outputs = usable("audiooutput");
+  let output =
+    outputs.find(
+      (d) => d.groupId && d.groupId === bestInput.groupId,
+    ) ?? null;
+  if (!output) {
+    let bestScore = 0;
+    for (const d of outputs) {
+      if (!d.label) continue;
+      const score = scoreDeviceLabel(d.label);
+      if (score > bestScore) {
+        bestScore = score;
+        output = d;
+      }
+    }
+  }
+
+  return { inputId: bestInput.deviceId, outputId: output?.deviceId ?? "" };
+}
+
 /** Turns a getUserMedia rejection into something worth showing a user. */
 export function describeMediaError(error: unknown): string {
   if (error instanceof DOMException) {

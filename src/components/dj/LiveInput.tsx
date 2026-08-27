@@ -8,6 +8,7 @@ import {
   getCabinetImpulse,
   getImpulseResponse,
   makeDriveCurve,
+  pickAudioInterface,
   type AudioContextWithSink,
   type DistModel,
 } from "./audioEngine";
@@ -62,6 +63,7 @@ type Chain = {
   octaveTone: BiquadFilterNode;
   octaveVoiceGain: GainNode;
   master: GainNode;
+  limiter: WaveShaperNode;
 };
 
 type Preset = {
@@ -319,6 +321,9 @@ export function LiveInput({
   const chainRef = useRef<Chain | null>(null);
   const rafRef = useRef<number | null>(null);
   const appliedInputRef = useRef<string | null>(null);
+  // Once the user picks an input/output by hand, stop auto-selecting the
+  // detected audio interface for them.
+  const manualDeviceRef = useRef(false);
   // Mirrored into refs so the gate's rAF loop reads the latest values
   // without needing to be torn down and restarted on every tweak.
   const gateOnRef = useRef(gateOn);
@@ -381,7 +386,7 @@ export function LiveInput({
         chain.phaserWet, ...chain.phaserAllpass, chain.wahFilter, chain.wahWet,
         chain.delay, chain.delayFeedback, chain.delayWet, chain.reverbConvolver,
         chain.reverbWet, chain.octaveOsc, chain.octaveTone, chain.octaveVoiceGain,
-        chain.master,
+        chain.master, chain.limiter,
       ];
       for (const node of nodes) {
         try {
@@ -451,6 +456,26 @@ export function LiveInput({
     const coreOut = ctx.createGain();
     const master = ctx.createGain();
     master.gain.value = level;
+    // Safety soft-clipper on the output: linear below ~-3 dBFS, soft knee to a
+    // hard ceiling above it, so an accidental feedback loop (input + output on
+    // the same speakers) is squashed instead of howling. A WaveShaper with no
+    // oversampling adds zero latency — unlike a DynamicsCompressor.
+    const limiter = ctx.createWaveShaper();
+    {
+      const n = 1024;
+      const knee = 0.7;
+      const curve = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
+        const x = (i / (n - 1)) * 2 - 1;
+        const mag = Math.abs(x);
+        curve[i] =
+          mag <= knee
+            ? x
+            : Math.sign(x) *
+              (knee + (1 - knee) * Math.tanh((mag - knee) / (1 - knee)));
+      }
+      limiter.curve = curve;
+    }
     const ampGain = ctx.createGain();
     ampGain.gain.value = ampOn ? 1 : 0;
 
@@ -563,7 +588,7 @@ export function LiveInput({
     delay.connect(delayWet).connect(master);
     coreOut.connect(reverbConvolver).connect(reverbWet).connect(master);
     octaveOsc.connect(octaveTone).connect(octaveVoiceGain).connect(master);
-    master.connect(ctx.destination);
+    master.connect(limiter).connect(ctx.destination);
 
     getCabinetImpulse(ctx)
       .then((buf) => {
@@ -585,19 +610,26 @@ export function LiveInput({
       chorusDelay, chorusLfo, chorusDepth, chorusWet,
       phaserAllpass, phaserLfo, phaserDepth, phaserWet, wahFilter, wahWet, delay,
       delayFeedback: delayFeedbackNode, delayWet, reverbConvolver, reverbWet,
-      octaveOsc, octaveTone, octaveVoiceGain, master,
+      octaveOsc, octaveTone, octaveVoiceGain, master, limiter,
     };
   }
 
   function startGateLoop(ctx: AudioContext) {
-    const buffer = new Float32Array(chainRef.current?.gateAnalyser.fftSize ?? 1024);
+    const fftSize = chainRef.current?.gateAnalyser.fftSize ?? 2048;
+    const buffer = new Float32Array(fftSize);
+    // Gate + envelope followers read only the most recent ~1024 samples so
+    // they stay responsive; pitch detection gets the full (longer) window it
+    // needs to lock onto low notes.
+    const envWindow = Math.min(1024, fftSize);
     const tick = () => {
       const chain = chainRef.current;
       if (!chain) return;
       chain.gateAnalyser.getFloatTimeDomainData(buffer);
       let sum = 0;
-      for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
-      const rms = Math.sqrt(sum / buffer.length);
+      for (let i = fftSize - envWindow; i < fftSize; i++) {
+        sum += buffer[i] * buffer[i];
+      }
+      const rms = Math.sqrt(sum / envWindow);
       const db = 20 * Math.log10(rms || 1e-8);
       const open = !gateOnRef.current || db > gateThresholdRef.current;
       chain.gateGain.gain.setTargetAtTime(
@@ -645,7 +677,33 @@ export function LiveInput({
     const devices = await navigator.mediaDevices.enumerateDevices();
     setInputDevices(devices.filter((d) => d.kind === "audioinput"));
     setOutputDevices(devices.filter((d) => d.kind === "audiooutput"));
+    // Default both ends to a plugged-in audio interface when we can spot one
+    // and the user hasn't overridden the choice. The input/output effects
+    // below then hot-swap the live chain to match.
+    if (!manualDeviceRef.current) {
+      const pick = pickAudioInterface(devices);
+      if (pick.inputId) setInputId(pick.inputId);
+      if (pick.outputId) setOutputId(pick.outputId);
+    }
   }
+
+  // Pre-select the interface on mount too, so the very first "Enable" opens it
+  // directly (avoids grabbing the laptop mic + speakers, a feedback magnet).
+  // Labels are only populated once mic permission has been granted before —
+  // which is the common case on a page refresh.
+  useEffect(() => {
+    navigator.mediaDevices
+      ?.enumerateDevices()
+      .then((devices) => {
+        setInputDevices(devices.filter((d) => d.kind === "audioinput"));
+        setOutputDevices(devices.filter((d) => d.kind === "audiooutput"));
+        if (manualDeviceRef.current) return;
+        const pick = pickAudioInterface(devices);
+        if (pick.inputId) setInputId(pick.inputId);
+        if (pick.outputId) setOutputId(pick.outputId);
+      })
+      .catch(() => {});
+  }, []);
 
   async function enable() {
     setStarting(true);
@@ -663,9 +721,11 @@ export function LiveInput({
       });
       buildChain(ctx, stream);
       startGateLoop(ctx);
-      await refreshDevices();
       const actualId = stream.getAudioTracks()[0]?.getSettings().deviceId;
       if (actualId) setInputId(actualId);
+      // Now that permission is granted, device labels are readable — this may
+      // upgrade the input/output to a detected interface and hot-swap the chain.
+      await refreshDevices();
       setLatencyMs(
         Math.round((ctx.baseLatency + (ctx.outputLatency || 0)) * 1000),
       );
@@ -954,7 +1014,10 @@ export function LiveInput({
                   Input
                   <select
                     value={inputId}
-                    onChange={(e) => setInputId(e.target.value)}
+                    onChange={(e) => {
+                      manualDeviceRef.current = true;
+                      setInputId(e.target.value);
+                    }}
                     className={SELECT_CLS}
                   >
                     <option value="">System default</option>
@@ -969,7 +1032,10 @@ export function LiveInput({
                   Output
                   <select
                     value={outputId}
-                    onChange={(e) => setOutputId(e.target.value)}
+                    onChange={(e) => {
+                      manualDeviceRef.current = true;
+                      setOutputId(e.target.value);
+                    }}
                     disabled={!sinkSupported}
                     className={SELECT_CLS}
                   >

@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  connectOutputBus,
   DELAY_DIVISIONS,
   getImpulseResponse,
   makeDriveCurve,
-  makeSafetyCurve,
 } from "./audioEngine";
 import { CaptureShell } from "./CaptureShell";
-import { FxToggle, MiniSlider } from "./controls";
+import { FxToggle, MiniSlider, MixControls } from "./controls";
 import { useLiveCapture } from "./useLiveCapture";
 
 // A vocal mic run through a broadcast-style chain — highpass, gate, compressor,
@@ -44,6 +44,7 @@ type Chain = {
   reverbConvolver: ConvolverNode;
   reverbWet: GainNode;
   master: GainNode;
+  panner: StereoPannerNode;
   limiter: WaveShaperNode;
 };
 
@@ -162,6 +163,7 @@ export function VocalInput({
   const [delayFeedback, setDelayFeedback] = useState(0.25);
   const [reverbOn, setReverbOn] = useState(true);
   const [reverbMix, setReverbMix] = useState(0.14);
+  const [pan, setPan] = useState(0);
 
   const chainRef = useRef<Chain | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -177,6 +179,10 @@ export function VocalInput({
   function build(ctx: AudioContext, stream: MediaStream): Chain {
     const source = ctx.createMediaStreamSource(stream);
     const inputTrim = ctx.createGain();
+    // Sum to mono so a mic on interface channel 2 isn't stuck in one ear.
+    inputTrim.channelCount = 1;
+    inputTrim.channelCountMode = "explicit";
+    inputTrim.channelInterpretation = "speakers";
 
     const gateAnalyser = ctx.createAnalyser();
     gateAnalyser.fftSize = 1024;
@@ -247,10 +253,7 @@ export function VocalInput({
     const reverbWet = ctx.createGain();
     reverbWet.gain.value = 0;
 
-    const master = ctx.createGain();
-    master.gain.value = level;
-    const limiter = ctx.createWaveShaper();
-    limiter.curve = makeSafetyCurve();
+    const { input: master, panner, limiter } = connectOutputBus(ctx, level);
 
     source.connect(inputTrim);
     inputTrim.connect(gateAnalyser);
@@ -273,7 +276,6 @@ export function VocalInput({
     delay.connect(delayFeedbackNode).connect(delay);
     delay.connect(delayWet).connect(master);
     coreOut.connect(reverbConvolver).connect(reverbWet).connect(master);
-    master.connect(limiter).connect(ctx.destination);
 
     return {
       stream, source, inputTrim, gateAnalyser, gateGain, comp, compMakeup,
@@ -282,7 +284,7 @@ export function VocalInput({
       doubleDelayA, doubleLfoA, doubleDepthA,
       doubleDelayB, doubleLfoB, doubleDepthB, doubleWet,
       delay, delayFeedback: delayFeedbackNode, delayWet,
-      reverbConvolver, reverbWet, master, limiter,
+      reverbConvolver, reverbWet, master, panner, limiter,
     };
   }
 
@@ -301,7 +303,7 @@ export function VocalInput({
       chain.dryGain, chain.doubleDelayA, chain.doubleLfoA, chain.doubleDepthA,
       chain.doubleDelayB, chain.doubleLfoB, chain.doubleDepthB, chain.doubleWet,
       chain.delay, chain.delayFeedback, chain.delayWet, chain.reverbConvolver,
-      chain.reverbWet, chain.master, chain.limiter,
+      chain.reverbWet, chain.master, chain.panner, chain.limiter,
     ];
     for (const node of nodes) {
       try {
@@ -359,8 +361,10 @@ export function VocalInput({
   useEffect(() => {
     const chain = chainRef.current;
     if (!chain || !audioCtx) return;
-    chain.master.gain.setTargetAtTime(level, audioCtx.currentTime, 0.02);
-  }, [level, audioCtx, enabled]);
+    const now = audioCtx.currentTime;
+    chain.master.gain.setTargetAtTime(level, now, 0.02);
+    chain.panner.pan.setTargetAtTime(pan, now, 0.02);
+  }, [level, pan, audioCtx, enabled]);
 
   useEffect(() => {
     const chain = chainRef.current;
@@ -473,15 +477,12 @@ export function VocalInput({
         </>
       }
     >
-      <MiniSlider
-        label="Input level"
-        valueLabel={`${Math.round(level * 100)}%`}
-        min={0}
-        max={1}
-        step={0.01}
-        value={level}
-        onChange={(e) => setLevel(Number(e.target.value))}
-        onDoubleClick={() => setLevel(0.85)}
+      <MixControls
+        level={level}
+        pan={pan}
+        levelDefault={0.85}
+        onLevel={setLevel}
+        onPan={setPan}
       />
 
       <div className="flex flex-wrap gap-1.5">

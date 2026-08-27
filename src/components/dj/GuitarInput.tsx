@@ -2,16 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  connectOutputBus,
   DELAY_DIVISIONS,
   detectPitch,
   getCabinetImpulse,
   getImpulseResponse,
   makeDriveCurve,
-  makeSafetyCurve,
   type DistModel,
 } from "./audioEngine";
 import { CaptureShell } from "./CaptureShell";
-import { FxToggle, MiniSlider } from "./controls";
+import { FxToggle, MiniSlider, MixControls } from "./controls";
 import { useLiveCapture } from "./useLiveCapture";
 
 // A guitar (or any line input) run through a small pedalboard of native Web
@@ -61,6 +61,7 @@ type Chain = {
   octaveTone: BiquadFilterNode;
   octaveVoiceGain: GainNode;
   master: GainNode;
+  panner: StereoPannerNode;
   limiter: WaveShaperNode;
 };
 
@@ -274,6 +275,7 @@ export function GuitarInput({
   const [pedalsOpen, setPedalsOpen] = useState(false);
 
   const [level, setLevel] = useState(0.8);
+  const [pan, setPan] = useState(0);
   const [ampOn, setAmpOn] = useState(true);
   const [gateOn, setGateOn] = useState(false);
   const [gateThreshold, setGateThreshold] = useState(-55);
@@ -338,6 +340,11 @@ export function GuitarInput({
   function build(ctx: AudioContext, stream: MediaStream): Chain {
     const source = ctx.createMediaStreamSource(stream);
     const inputTrim = ctx.createGain();
+    // Interfaces often hand us a 2-channel stream with the guitar on channel 1
+    // only — force a mono sum here so it lands centred, not just in the left ear.
+    inputTrim.channelCount = 1;
+    inputTrim.channelCountMode = "explicit";
+    inputTrim.channelInterpretation = "speakers";
 
     const gateAnalyser = ctx.createAnalyser();
     // 2048 gives the octave pitch tracker enough low-note periods to lock onto.
@@ -384,10 +391,7 @@ export function GuitarInput({
     eqHighNode.frequency.value = 3800;
 
     const coreOut = ctx.createGain();
-    const master = ctx.createGain();
-    master.gain.value = level;
-    const limiter = ctx.createWaveShaper();
-    limiter.curve = makeSafetyCurve();
+    const { input: master, panner, limiter } = connectOutputBus(ctx, level);
     const ampGain = ctx.createGain();
     ampGain.gain.value = ampOn ? 1 : 0;
 
@@ -495,7 +499,6 @@ export function GuitarInput({
     delay.connect(delayWet).connect(master);
     coreOut.connect(reverbConvolver).connect(reverbWet).connect(master);
     octaveOsc.connect(octaveTone).connect(octaveVoiceGain).connect(master);
-    master.connect(limiter).connect(ctx.destination);
 
     getCabinetImpulse(ctx)
       .then((buf) => {
@@ -514,7 +517,7 @@ export function GuitarInput({
       chorusDelay, chorusLfo, chorusDepth, chorusWet,
       phaserAllpass, phaserLfo, phaserDepth, phaserWet, wahFilter, wahWet, delay,
       delayFeedback: delayFeedbackNode, delayWet, reverbConvolver, reverbWet,
-      octaveOsc, octaveTone, octaveVoiceGain, master, limiter,
+      octaveOsc, octaveTone, octaveVoiceGain, master, panner, limiter,
     };
   }
 
@@ -539,7 +542,7 @@ export function GuitarInput({
       chain.phaserWet, ...chain.phaserAllpass, chain.wahFilter, chain.wahWet,
       chain.delay, chain.delayFeedback, chain.delayWet, chain.reverbConvolver,
       chain.reverbWet, chain.octaveOsc, chain.octaveTone, chain.octaveVoiceGain,
-      chain.master, chain.limiter,
+      chain.master, chain.panner, chain.limiter,
     ];
     for (const node of nodes) {
       try {
@@ -634,8 +637,9 @@ export function GuitarInput({
     if (!chain || !audioCtx) return;
     const now = audioCtx.currentTime;
     chain.master.gain.setTargetAtTime(level, now, 0.02);
+    chain.panner.pan.setTargetAtTime(pan, now, 0.02);
     chain.ampGain.gain.setTargetAtTime(ampOn ? 1 : 0, now, 0.02);
-  }, [level, ampOn, audioCtx, enabled]);
+  }, [level, pan, ampOn, audioCtx, enabled]);
 
   useEffect(() => {
     const chain = chainRef.current;
@@ -795,30 +799,25 @@ export function GuitarInput({
         </>
       }
     >
-      <div className="grid grid-cols-2 items-end gap-2">
-        <MiniSlider
-          label="Input level"
-          valueLabel={`${Math.round(level * 100)}%`}
-          min={0}
-          max={1}
-          step={0.01}
-          value={level}
-          onChange={(e) => setLevel(Number(e.target.value))}
-          onDoubleClick={() => setLevel(0.8)}
-        />
-        <button
-          type="button"
-          onClick={() => setAmpOn((v) => !v)}
-          title="Send the amp/dry guitar to the output. Turn off when monitoring dry on the interface — delay and reverb tails still come through."
-          className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${
-            ampOn
-              ? "border-foreground bg-foreground text-background"
-              : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-          }`}
-        >
-          Amp to output {ampOn ? "On" : "Off"}
-        </button>
-      </div>
+      <MixControls
+        level={level}
+        pan={pan}
+        levelDefault={0.8}
+        onLevel={setLevel}
+        onPan={setPan}
+      />
+      <button
+        type="button"
+        onClick={() => setAmpOn((v) => !v)}
+        title="Send the amp/dry guitar to the output. Turn off when monitoring dry on the interface — delay and reverb tails still come through."
+        className={`self-start rounded-full border px-2.5 py-1 text-[10px] font-medium ${
+          ampOn
+            ? "border-foreground bg-foreground text-background"
+            : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+        }`}
+      >
+        Amp to output {ampOn ? "On" : "Off"}
+      </button>
 
       <div className="flex flex-wrap gap-1.5">
         {PRESETS.map((preset) => (

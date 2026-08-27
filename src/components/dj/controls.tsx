@@ -23,6 +23,52 @@ export function MiniSlider({
   );
 }
 
+const panLabel = (pan: number) => {
+  if (Math.abs(pan) < 0.005) return "C";
+  const amt = Math.round(Math.abs(pan) * 100);
+  return pan < 0 ? `L${amt}` : `R${amt}`;
+};
+
+// Level + pan for the live instrument against the DJ music.
+export function MixControls({
+  level,
+  pan,
+  levelDefault,
+  onLevel,
+  onPan,
+}: {
+  level: number;
+  pan: number;
+  levelDefault: number;
+  onLevel: (value: number) => void;
+  onPan: (value: number) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <MiniSlider
+        label="Level"
+        valueLabel={`${Math.round(level * 100)}%`}
+        min={0}
+        max={1}
+        step={0.01}
+        value={level}
+        onChange={(e) => onLevel(Number(e.target.value))}
+        onDoubleClick={() => onLevel(levelDefault)}
+      />
+      <MiniSlider
+        label="Pan"
+        valueLabel={panLabel(pan)}
+        min={-1}
+        max={1}
+        step={0.02}
+        value={pan}
+        onChange={(e) => onPan(Number(e.target.value))}
+        onDoubleClick={() => onPan(0)}
+      />
+    </div>
+  );
+}
+
 export function FxToggle({
   label,
   on,

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getImpulseResponse, makeSafetyCurve } from "./audioEngine";
+import { connectOutputBus, getImpulseResponse } from "./audioEngine";
 import { CaptureShell } from "./CaptureShell";
-import { MiniSlider } from "./controls";
+import { MiniSlider, MixControls } from "./controls";
 import { useLiveCapture } from "./useLiveCapture";
 
 // An electronic drum kit already makes its own sounds, so this stays minimal:
@@ -23,6 +23,7 @@ type Chain = {
   reverbConvolver: ConvolverNode;
   reverbWet: GainNode;
   master: GainNode;
+  panner: StereoPannerNode;
   limiter: WaveShaperNode;
 };
 
@@ -61,6 +62,7 @@ export function DrumInput({
   const [eqHigh, setEqHigh] = useState(0);
   const [reverbOn, setReverbOn] = useState(true);
   const [reverbMix, setReverbMix] = useState(0.12);
+  const [pan, setPan] = useState(0);
 
   const chainRef = useRef<Chain | null>(null);
 
@@ -90,22 +92,18 @@ export function DrumInput({
     const reverbWet = ctx.createGain();
     reverbWet.gain.value = 0;
 
-    const master = ctx.createGain();
-    master.gain.value = level;
-    const limiter = ctx.createWaveShaper();
-    limiter.curve = makeSafetyCurve();
+    const { input: master, panner, limiter } = connectOutputBus(ctx, level);
 
     source.connect(inputTrim);
     inputTrim.connect(comp).connect(compMakeup);
     compMakeup.connect(eqLowNode).connect(eqMidNode).connect(eqHighNode);
     eqHighNode.connect(dryGain).connect(master);
     eqHighNode.connect(reverbConvolver).connect(reverbWet).connect(master);
-    master.connect(limiter).connect(ctx.destination);
 
     return {
       stream, source, inputTrim, comp, compMakeup,
       eqLow: eqLowNode, eqMid: eqMidNode, eqHigh: eqHighNode,
-      dryGain, reverbConvolver, reverbWet, master, limiter,
+      dryGain, reverbConvolver, reverbWet, master, panner, limiter,
     };
   }
 
@@ -113,7 +111,8 @@ export function DrumInput({
     const nodes: AudioNode[] = [
       chain.source, chain.inputTrim, chain.comp, chain.compMakeup,
       chain.eqLow, chain.eqMid, chain.eqHigh, chain.dryGain,
-      chain.reverbConvolver, chain.reverbWet, chain.master, chain.limiter,
+      chain.reverbConvolver, chain.reverbWet, chain.master, chain.panner,
+      chain.limiter,
     ];
     for (const node of nodes) {
       try {
@@ -144,8 +143,10 @@ export function DrumInput({
   useEffect(() => {
     const chain = chainRef.current;
     if (!chain || !audioCtx) return;
-    chain.master.gain.setTargetAtTime(level, audioCtx.currentTime, 0.02);
-  }, [level, audioCtx, enabled]);
+    const now = audioCtx.currentTime;
+    chain.master.gain.setTargetAtTime(level, now, 0.02);
+    chain.panner.pan.setTargetAtTime(pan, now, 0.02);
+  }, [level, pan, audioCtx, enabled]);
 
   useEffect(() => {
     const chain = chainRef.current;
@@ -202,15 +203,12 @@ export function DrumInput({
         </>
       }
     >
-      <MiniSlider
-        label="Input level"
-        valueLabel={`${Math.round(level * 100)}%`}
-        min={0}
-        max={1}
-        step={0.01}
-        value={level}
-        onChange={(e) => setLevel(Number(e.target.value))}
-        onDoubleClick={() => setLevel(0.8)}
+      <MixControls
+        level={level}
+        pan={pan}
+        levelDefault={0.8}
+        onLevel={setLevel}
+        onPan={setPan}
       />
 
       <div className="flex flex-wrap gap-1.5">

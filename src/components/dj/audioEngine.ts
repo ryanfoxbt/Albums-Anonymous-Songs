@@ -235,6 +235,24 @@ export function makeSafetyCurve(): Float32Array<ArrayBuffer> {
 }
 
 /**
+ * The output stage every live input shares: a level gain → stereo panner →
+ * safety soft-clipper → destination. Returns the nodes so callers can feed
+ * their sends into `input` and automate `panner.pan` / `input.gain`.
+ */
+export function connectOutputBus(
+  ctx: AudioContext,
+  level: number,
+): { input: GainNode; panner: StereoPannerNode; limiter: WaveShaperNode } {
+  const input = ctx.createGain();
+  input.gain.value = level;
+  const panner = ctx.createStereoPanner();
+  const limiter = ctx.createWaveShaper();
+  limiter.curve = makeSafetyCurve();
+  input.connect(panner).connect(limiter).connect(ctx.destination);
+  return { input, panner, limiter };
+}
+
+/**
  * Rough monophonic pitch estimate via band-limited autocorrelation — enough
  * to drive a sub-octave oscillator from a single-note guitar line. Returns
  * the fundamental in Hz, or null when the input is too quiet or unpitched.

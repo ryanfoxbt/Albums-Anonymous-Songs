@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { DJ_DRAG_MIME, type DjSong } from "./types";
 
 type ListedFilter = "all" | "listed" | "unlisted";
-type SortOrder = "title" | "popular";
+type SortOrder = "title" | "newest" | "popular";
 
 export function SongBrowser({
   songs,
@@ -30,6 +30,9 @@ export function SongBrowser({
     });
     if (sort === "popular") {
       return [...matches].sort((a, b) => b.playCount - a.playCount);
+    }
+    if (sort === "newest") {
+      return [...matches].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
     return matches;
   }, [songs, query, filter, sort]);
@@ -67,6 +70,7 @@ export function SongBrowser({
       <div className="flex gap-1 text-[10px]">
         {([
           ["title", "A–Z"],
+          ["newest", "Newest"],
           ["popular", "Most popular"],
         ] as const).map(([value, label]) => (
           <button

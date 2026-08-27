@@ -21,6 +21,8 @@ export type SongWithRelations = {
   bpm: number | null;
   coverImageUrl: string | null;
   hidden: boolean;
+  /** ISO string — serialisable across the RSC boundary, sorts chronologically. */
+  createdAt: string;
   podcastEpisodeTitle: string | null;
   podcastEpisodeUrl: string | null;
   firstHeardOnEpisode: number | null;
@@ -107,7 +109,7 @@ function fallbackSongs(): SongWithRelations[] {
   const genres = fallbackGenres();
   const categories = fallbackCategories();
 
-  return content.songs.map((song) => {
+  return content.songs.map((song, index) => {
     const artist = artists.find((a) => a.slug === song.artist);
     const genre = genres.find((g) => g.slug === song.genre);
     const category = categories.find((c) => c.slug === song.category);
@@ -126,6 +128,11 @@ function fallbackSongs(): SongWithRelations[] {
       bpm: null,
       coverImageUrl: song.coverImageUrl ?? null,
       hidden: false,
+      // No timestamps in the JSON fallback — treat file order as chronological
+      // (later in the file = more recently added).
+      createdAt: new Date(
+        Date.UTC(2020, 0, 1) + index * 86_400_000,
+      ).toISOString(),
       podcastEpisodeTitle: song.podcastEpisodeTitle ?? null,
       podcastEpisodeUrl: song.podcastEpisodeUrl ?? null,
       firstHeardOnEpisode: song.firstHeardOnEpisode ?? null,
@@ -144,7 +151,10 @@ function fallbackSongs(): SongWithRelations[] {
 }
 
 export async function getSongs(
-  options?: { includeHidden?: boolean; sortBy?: "title" | "popularity" },
+  options?: {
+    includeHidden?: boolean;
+    sortBy?: "title" | "popularity" | "newest";
+  },
 ): Promise<SongWithRelations[]> {
   const includeHidden = options?.includeHidden ?? false;
   const sortBy = options?.sortBy ?? "title";
@@ -166,10 +176,20 @@ export async function getSongs(
       },
       orderBy: { title: "asc" },
     });
-    const songs = rows.map((song) => ({ ...song, playCount: song._count.songPlays }));
+    const songs = rows.map((song) => ({
+      ...song,
+      createdAt: song.createdAt.toISOString(),
+      playCount: song._count.songPlays,
+    }));
     if (sortBy === "popularity") {
       return songs.sort((a, b) => {
         const diff = b.playCount - a.playCount;
+        return diff !== 0 ? diff : a.title.localeCompare(b.title);
+      });
+    }
+    if (sortBy === "newest") {
+      return songs.sort((a, b) => {
+        const diff = b.createdAt.localeCompare(a.createdAt);
         return diff !== 0 ? diff : a.title.localeCompare(b.title);
       });
     }
@@ -194,7 +214,12 @@ export async function getSongsByIds(
       category: true,
     },
   });
-  const byId = new Map(songs.map((song) => [song.id, song]));
+  const byId = new Map(
+    songs.map((song) => [
+      song.id,
+      { ...song, createdAt: song.createdAt.toISOString() },
+    ]),
+  );
   return ids.map((id) => byId.get(id)).filter((song) => song !== undefined);
 }
 
@@ -215,7 +240,9 @@ export async function getSongBySlug(
         category: true,
       },
     });
-    return song && !song.hidden ? song : null;
+    return song && !song.hidden
+      ? { ...song, createdAt: song.createdAt.toISOString() }
+      : null;
   } catch (error) {
     warnFallback("song by slug", error);
     return fallbackSongs().find((song) => song.slug === slug) ?? null;

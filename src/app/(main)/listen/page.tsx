@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 export default async function ListenPage() {
   const [songs, artists, genres, categories] = await Promise.all([
-    getSongs({ sortBy: "popularity" }),
+    getSongs({ sortBy: "newest" }),
     getArtists(),
     getGenres(),
     getCategories(),

@@ -8,6 +8,14 @@ import type {
 
 export const ALL = "all";
 
+export type SongSort = "newest" | "popular" | "title";
+
+export const SONG_SORTS: { value: SongSort; label: string }[] = [
+  { value: "newest", label: "Newest" },
+  { value: "popular", label: "Popular" },
+  { value: "title", label: "A–Z" },
+];
+
 export type ActiveFilterChip = {
   key: string;
   label: string;
@@ -24,10 +32,11 @@ export function useSongFilters(
   const [artist, setArtist] = useState(ALL);
   const [genre, setGenre] = useState(ALL);
   const [category, setCategory] = useState(ALL);
+  const [sort, setSort] = useState<SongSort>("newest");
 
   const filteredSongs = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return songs.filter((song) => {
+    const matched = songs.filter((song) => {
       const matchesQuery =
         query.length === 0 ||
         song.title.toLowerCase().includes(query) ||
@@ -38,13 +47,25 @@ export function useSongFilters(
         category === ALL || song.categoryId === category;
       return matchesQuery && matchesArtist && matchesGenre && matchesCategory;
     });
-  }, [songs, search, artist, genre, category]);
+
+    return [...matched].sort((a, b) => {
+      if (sort === "popular") {
+        const diff = (b.playCount ?? 0) - (a.playCount ?? 0);
+        return diff !== 0 ? diff : a.title.localeCompare(b.title);
+      }
+      if (sort === "title") return a.title.localeCompare(b.title);
+      // "newest"
+      const diff = b.createdAt.localeCompare(a.createdAt);
+      return diff !== 0 ? diff : a.title.localeCompare(b.title);
+    });
+  }, [songs, search, artist, genre, category, sort]);
 
   const clearAll = () => {
     setSearch("");
     setArtist(ALL);
     setGenre(ALL);
     setCategory(ALL);
+    setSort("newest");
   };
 
   const activeFilters = useMemo<ActiveFilterChip[]>(() => {
@@ -89,6 +110,8 @@ export function useSongFilters(
     setGenre,
     category,
     setCategory,
+    sort,
+    setSort,
     filteredSongs,
     activeFilters,
     clearAll,

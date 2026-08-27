@@ -4,7 +4,7 @@ const TABS = [
   { href: "/admin/analytics", label: "Overview" },
   { href: "/admin/analytics/visitors", label: "Visitors" },
   { href: "/admin/analytics/songs", label: "Songs" },
-  { href: "/admin/analytics/entry-choice", label: "Listen vs Watch" },
+  { href: "/admin/analytics/entry-choice", label: "Entry platform" },
   { href: "/admin/analytics/utm", label: "UTM Links" },
   { href: "/admin/analytics/search", label: "Google Search" },
 ] as const;

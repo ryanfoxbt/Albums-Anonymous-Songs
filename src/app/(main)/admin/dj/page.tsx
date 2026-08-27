@@ -15,6 +15,7 @@ export default async function AdminDjPage() {
     hidden: song.hidden,
     durationSeconds: song.durationSeconds,
     playCount: song.playCount ?? 0,
+    createdAt: song.createdAt,
     bpm: song.bpm,
   }));
 

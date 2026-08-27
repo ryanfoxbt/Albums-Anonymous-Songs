@@ -65,7 +65,14 @@ export function trackPodcastClick(songId: string, url: string, path: string) {
   beacon("/api/track/podcast-click", { songId, url, path });
 }
 
-export function trackEntryChoice(choice: "listen" | "watch") {
+/**
+ * Which route a session took off the homepage picker: one of the podcast
+ * platforms, or "listen" for the site's own song player (the small homepage
+ * link or the "Listen" nav item).
+ */
+export type EntryChoice = "spotify" | "youtube" | "apple" | "listen";
+
+export function trackEntryChoice(choice: EntryChoice) {
   beacon("/api/track/entry-choice", { choice });
 }
 

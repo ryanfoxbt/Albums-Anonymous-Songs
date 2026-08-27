@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { PodcastPlatformIcon } from "@/components/icons/PodcastPlatformIcon";
+import { EntryChoiceLink } from "@/components/landing/EntryChoiceLink";
 import { PODCAST_PLATFORMS } from "@/lib/podcastPlatforms";
 import { prisma } from "@/lib/prisma";
 
@@ -60,17 +60,18 @@ export default async function Home() {
             Albums <span className="text-[#F760D6]">Anonymous</span>
           </h1>
           <p className="text-sm text-black/60 dark:text-white/60">
-            The comedy music podcast. Pick where you want to watch or listen.
+            An immature book club for great albums - with original song
+            blindsides.
           </p>
         </div>
 
         <div className="flex w-full flex-col gap-4">
           {PODCAST_PLATFORMS.map((platform) => (
-            <a
+            <EntryChoiceLink
               key={platform.name}
               href={platform.href}
-              target="_blank"
-              rel="noopener noreferrer"
+              choice={platform.choice}
+              external
               className="flex items-center justify-center gap-3 rounded-2xl border border-black/15 px-6 py-5 text-base font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
             >
               <PodcastPlatformIcon
@@ -78,16 +79,17 @@ export default async function Home() {
                 className="h-5 w-5 shrink-0"
               />
               {platform.name}
-            </a>
+            </EntryChoiceLink>
           ))}
         </div>
 
-        <Link
+        <EntryChoiceLink
           href="/listen"
+          choice="listen"
           className="text-xs font-medium text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white"
         >
           Or listen to the songs
-        </Link>
+        </EntryChoiceLink>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EntryChoiceLink } from "@/components/landing/EntryChoiceLink";
 
 export function Header({ logoUrl }: { logoUrl?: string | null }) {
   return (
@@ -20,12 +21,13 @@ export function Header({ logoUrl }: { logoUrl?: string | null }) {
         </Link>
 
         <div className="flex items-center gap-3 sm:gap-4">
-          <Link
+          <EntryChoiceLink
             href="/listen"
+            choice="listen"
             className="text-xs font-medium text-black/60 hover:text-black sm:text-sm dark:text-white/60 dark:hover:text-white"
           >
             Listen
-          </Link>
+          </EntryChoiceLink>
 
           <Link
             href="/press"

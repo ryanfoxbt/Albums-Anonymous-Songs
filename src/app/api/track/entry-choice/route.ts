@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const VALID_CHOICES = new Set(["listen", "watch"]);
+const VALID_CHOICES = new Set(["spotify", "youtube", "apple", "listen"]);
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();

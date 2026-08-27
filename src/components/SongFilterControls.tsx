@@ -5,7 +5,7 @@ import type {
   CategorySummary,
   GenreSummary,
 } from "@/lib/songs";
-import { ALL, type useSongFilters } from "@/lib/useSongFilters";
+import { ALL, SONG_SORTS, type useSongFilters } from "@/lib/useSongFilters";
 
 export function SongFilterControls({
   filters,
@@ -27,6 +27,8 @@ export function SongFilterControls({
     setGenre,
     category,
     setCategory,
+    sort,
+    setSort,
     activeFilters,
     clearAll,
   } = filters;
@@ -40,6 +42,27 @@ export function SongFilterControls({
         placeholder="Search by song or artist..."
         className="w-full rounded-full border border-black/15 px-4 py-2 text-sm dark:border-white/20 dark:bg-transparent"
       />
+
+      <div className="flex items-center gap-1.5">
+        <span className="mr-0.5 text-xs text-black/50 dark:text-white/50">
+          Sort
+        </span>
+        {SONG_SORTS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setSort(option.value)}
+            aria-pressed={sort === option.value}
+            className={`rounded-full border px-3 py-1 text-xs font-medium ${
+              sort === option.value
+                ? "border-foreground bg-foreground text-background"
+                : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
 
       <div className="grid grid-cols-3 gap-2">
         <select

@@ -21,9 +21,16 @@ export default async function AdminAnalyticsEntryChoicePage({
   });
 
   const breakdown = await getEntryChoiceBreakdown(range);
-  const listenShare = breakdown.total > 0 ? breakdown.listen / breakdown.total : 0;
-  const watchShare = breakdown.total > 0 ? breakdown.watch / breakdown.total : 0;
-  const otherShare = breakdown.total > 0 ? breakdown.other / breakdown.total : 0;
+  const share = (n: number) =>
+    breakdown.total > 0 ? n / breakdown.total : 0;
+
+  const buckets = [
+    { key: "youtube", label: "YouTube", color: "#FF0000" },
+    { key: "spotify", label: "Spotify", color: "#1DB954" },
+    { key: "apple", label: "Apple", color: "#A855F7" },
+    { key: "listen", label: "Listen (site)", color: "#F760D6" },
+    { key: "other", label: "Other / direct", color: "rgba(120,120,120,0.5)" },
+  ] as const;
 
   return (
     <div className="flex flex-col gap-6">
@@ -53,47 +60,37 @@ export default async function AdminAnalyticsEntryChoicePage({
       </p>
 
       <p className="text-sm text-black/60 dark:text-white/60">
-        Which homepage button a new session clicked first — &quot;Listen to
-        the Songs&quot; or &quot;Watch the Podcast&quot;. Sessions that never
-        clicked either (e.g. a shared link straight to a song) count as
-        &quot;Other&quot;.
+        Which homepage link a new session took first — a podcast platform
+        (YouTube / Spotify / Apple) or the site&rsquo;s own player (the small
+        &quot;listen to the songs&quot; link or the &quot;Listen&quot; nav
+        item). Sessions that never clicked a homepage link (e.g. a shared link
+        straight to a song) count as &quot;Other&quot;.
       </p>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatCard
-          label="Listen"
-          value={String(breakdown.listen)}
-          sublabel={formatPercent(listenShare)}
-        />
-        <StatCard
-          label="Watch"
-          value={String(breakdown.watch)}
-          sublabel={formatPercent(watchShare)}
-        />
-        <StatCard
-          label="Other / direct"
-          value={String(breakdown.other)}
-          sublabel={formatPercent(otherShare)}
-        />
+        {buckets.map((b) => (
+          <StatCard
+            key={b.key}
+            label={b.label}
+            value={String(breakdown[b.key])}
+            sublabel={formatPercent(share(breakdown[b.key]))}
+          />
+        ))}
       </div>
 
       {breakdown.total > 0 && (
         <div className="flex h-3 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
-          <div
-            className="h-full bg-[#F760D6]"
-            style={{ width: `${listenShare * 100}%` }}
-            title={`Listen: ${formatPercent(listenShare)}`}
-          />
-          <div
-            className="h-full bg-black/60 dark:bg-white/60"
-            style={{ width: `${watchShare * 100}%` }}
-            title={`Watch: ${formatPercent(watchShare)}`}
-          />
-          <div
-            className="h-full bg-black/20 dark:bg-white/20"
-            style={{ width: `${otherShare * 100}%` }}
-            title={`Other: ${formatPercent(otherShare)}`}
-          />
+          {buckets.map((b) => (
+            <div
+              key={b.key}
+              className="h-full"
+              style={{
+                width: `${share(breakdown[b.key]) * 100}%`,
+                backgroundColor: b.color,
+              }}
+              title={`${b.label}: ${formatPercent(share(breakdown[b.key]))}`}
+            />
+          ))}
         </div>
       )}
 

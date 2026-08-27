@@ -223,14 +223,16 @@ export async function getTopLocations(
 }
 
 export type EntryChoiceBreakdown = {
+  spotify: number;
+  youtube: number;
+  apple: number;
   listen: number;
-  watch: number;
   other: number;
   total: number;
 };
 
-// "other" covers sessions that never clicked either homepage button — a
-// direct/shared link straight to a song, /listen, or /watch page.
+// "other" covers sessions that never clicked a homepage link — a direct or
+// shared link straight to a song or /listen — plus any legacy values.
 export async function getEntryChoiceBreakdown(
   range: DateRange,
 ): Promise<EntryChoiceBreakdown> {
@@ -240,16 +242,19 @@ export async function getEntryChoiceBreakdown(
     _count: { id: true },
   });
 
-  let listen = 0;
-  let watch = 0;
-  let other = 0;
+  const counts = { spotify: 0, youtube: 0, apple: 0, listen: 0, other: 0 };
   for (const row of rows) {
-    if (row.entryChoice === "listen") listen = row._count.id;
-    else if (row.entryChoice === "watch") watch = row._count.id;
-    else other += row._count.id;
+    const key = row.entryChoice;
+    if (key === "spotify" || key === "youtube" || key === "apple" || key === "listen") {
+      counts[key] = row._count.id;
+    } else {
+      counts.other += row._count.id;
+    }
   }
 
-  return { listen, watch, other, total: listen + watch + other };
+  const total =
+    counts.spotify + counts.youtube + counts.apple + counts.listen + counts.other;
+  return { ...counts, total };
 }
 
 export type TopSource = {

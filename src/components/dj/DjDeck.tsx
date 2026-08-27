@@ -101,6 +101,8 @@ export const DjDeck = forwardRef<
     label: "A" | "B";
     song: DjSong | null;
     audioCtx: AudioContext | null;
+    /** Creates the shared AudioContext on first use (from a user gesture). */
+    ensureAudioContext: () => AudioContext;
     /** This deck's target output gain (0..1), driven by the shared crossfader. */
     gain: number;
     tempo: number;
@@ -121,6 +123,7 @@ export const DjDeck = forwardRef<
     label,
     song,
     audioCtx,
+    ensureAudioContext,
     gain,
     tempo,
     onTempoChange,
@@ -178,12 +181,31 @@ export const DjDeck = forwardRef<
   const [scratching, setScratching] = useState(false);
 
   useImperativeHandle(ref, () => ({
-    play: () => {
-      audioCtx?.resume();
-      audioRef.current?.play();
-    },
+    play: () => void resumeAndPlay(),
     pause: () => audioRef.current?.pause(),
   }));
+
+  // Bring the AudioContext up *before* the element starts. resume() is async,
+  // so firing it and calling play() in the same tick races — the deck can come
+  // up silent because the <audio> is routed through the still-suspended graph.
+  // (This was why the first manual play after a page load was hit-or-miss.)
+  async function resumeAndPlay() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const ctx = ensureAudioContext();
+    if (ctx.state !== "running") {
+      try {
+        await ctx.resume();
+      } catch {
+        // No user activation yet, or already resuming — try to play regardless.
+      }
+    }
+    try {
+      await audio.play();
+    } catch {
+      // Autoplay rejection or a load race; hitting play again will work.
+    }
+  }
 
   // Build the Web Audio node graph exactly once per deck. A
   // MediaElementAudioSourceNode can only ever be created once for a given
@@ -365,23 +387,32 @@ export const DjDeck = forwardRef<
     setSavedBpm(storedBpm);
     setBpm(storedBpm);
     onBpmChange?.(storedBpm);
-
-    if (audioCtx) {
-      loadTrack(audioCtx, song.audioUrl)
-        .then(({ buffer: buf, bpm: tagBpm }) => {
-          if (loadedSongIdRef.current !== song.id) return;
-          setBuffer(buf);
-          if (storedBpm == null && tagBpm != null) {
-            setBpm(tagBpm);
-            onBpmChange?.(tagBpm);
-          }
-        })
-        .catch(() => {
-          // Waveform/BPM are nice-to-haves; playback still works without them.
-        });
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [song, audioCtx]);
+  }, [song]);
+
+  // Decode the track for the waveform + scratch buffer. Runs whenever there's a
+  // song and a context but no buffer yet — including a song that was restored
+  // from a previous session before the AudioContext existed.
+  useEffect(() => {
+    if (!song || !audioCtx || buffer) return;
+    const songId = song.id;
+    let cancelled = false;
+    loadTrack(audioCtx, song.audioUrl)
+      .then(({ buffer: buf, bpm: tagBpm }) => {
+        if (cancelled || loadedSongIdRef.current !== songId) return;
+        setBuffer(buf);
+        if (song.bpm == null && tagBpm != null) {
+          setBpm(tagBpm);
+          onBpmChange?.(tagBpm);
+        }
+      })
+      .catch(() => {
+        // Waveform/BPM are nice-to-haves; playback still works without them.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [song, audioCtx, buffer, onBpmChange]);
 
   // Stop any in-flight scratch gesture when the deck unmounts.
   useEffect(() => {
@@ -391,8 +422,7 @@ export const DjDeck = forwardRef<
   function togglePlay() {
     const audio = audioRef.current;
     if (!audio || !song) return;
-    audioCtx?.resume();
-    if (audio.paused) audio.play();
+    if (audio.paused) void resumeAndPlay();
     else audio.pause();
   }
 

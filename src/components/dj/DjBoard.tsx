@@ -11,10 +11,11 @@ import type { SaveSongBpmResult } from "@/app/(main)/admin/dj/actions";
 const AUTO_DJ_TRANSITION_MS = 5000;
 const STORAGE_KEY = "dj-board-state-v1";
 
+// Only the loaded tracks are restored across a refresh. The crossfader stays
+// at its neutral default so a deck never comes back silently parked.
 type PersistedState = {
   deckASongId: string | null;
   deckBSongId: string | null;
-  crossfader: number;
 };
 
 export function DjBoard({
@@ -70,10 +71,10 @@ export function DjBoard({
     else setDeckBSong(song);
   }
 
-  // Restore the decks + crossfader from the last visit so a refresh doesn't
-  // wipe the session. Runs once, after mount, so server and first client
-  // render still match. Tracks are only re-cued, never auto-played.
-  /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect --
+  // Restore the loaded decks from the last visit so a refresh doesn't wipe the
+  // session. Runs once, after mount, so server and first client render still
+  // match. Tracks are only re-cued, never auto-played.
+  /* eslint-disable react-hooks/set-state-in-effect --
      one-shot hydration from localStorage on mount, guarded by hydratedRef */
   useEffect(() => {
     if (hydratedRef.current) return;
@@ -82,20 +83,22 @@ export function DjBoard({
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw) as Partial<PersistedState>;
-      if (saved.deckASongId && songsById.has(saved.deckASongId)) {
-        loadSong("A", saved.deckASongId);
-      }
-      if (saved.deckBSongId && songsById.has(saved.deckBSongId)) {
-        loadSong("B", saved.deckBSongId);
-      }
-      if (typeof saved.crossfader === "number") {
-        setCrossfader(Math.min(1, Math.max(0, saved.crossfader)));
-      }
+      // Re-cue by setting state only — no ensureAudioContext() here. The
+      // AudioContext must be created from a real user gesture (the first Play),
+      // or it starts suspended and the first play comes up silent.
+      const restoredA = saved.deckASongId
+        ? songsById.get(saved.deckASongId)
+        : undefined;
+      const restoredB = saved.deckBSongId
+        ? songsById.get(saved.deckBSongId)
+        : undefined;
+      if (restoredA) setDeckASong(restoredA);
+      if (restoredB) setDeckBSong(restoredB);
     } catch {
       // Corrupt or unavailable storage — start fresh.
     }
   }, [songsById]);
-  /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!hydratedRef.current) return;
@@ -103,13 +106,12 @@ export function DjBoard({
       const state: PersistedState = {
         deckASongId: deckASong?.id ?? null,
         deckBSongId: deckBSong?.id ?? null,
-        crossfader,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       // Storage full or blocked — persistence is best-effort.
     }
-  }, [deckASong, deckBSong, crossfader]);
+  }, [deckASong, deckBSong]);
 
   // Picks the next Auto DJ track from the shuffle bag: never replays a song
   // until the whole library has cycled. `excludeIds` (the decks currently in
@@ -209,6 +211,7 @@ export function DjBoard({
             label="A"
             song={deckASong}
             audioCtx={audioCtx}
+            ensureAudioContext={ensureAudioContext}
             gain={gainA}
             tempo={tempoA}
             onTempoChange={setTempoA}
@@ -225,6 +228,7 @@ export function DjBoard({
             label="B"
             song={deckBSong}
             audioCtx={audioCtx}
+            ensureAudioContext={ensureAudioContext}
             gain={gainB}
             tempo={tempoB}
             onTempoChange={setTempoB}

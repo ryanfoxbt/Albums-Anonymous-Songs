@@ -1,6 +1,5 @@
-// Small shared control widgets for the DJ board — a labelled range slider
-// and a "pedal" toggle-plus-mix row — used by both the decks and the live
-// guitar input panel.
+// Small shared control widgets for the DJ decks — a labelled range slider
+// and a "pedal" toggle-plus-mix row.
 
 export function MiniSlider({
   label,
@@ -20,55 +19,6 @@ export function MiniSlider({
       </span>
       <input type="range" className="w-full accent-foreground" {...inputProps} />
     </label>
-  );
-}
-
-const panLabel = (pan: number) => {
-  if (Math.abs(pan) < 0.005) return "C";
-  const amt = Math.round(Math.abs(pan) * 100);
-  return pan < 0 ? `L${amt}` : `R${amt}`;
-};
-
-// Level + pan for the live instrument against the DJ music. `levelMax` above 1
-// gives headroom to push a quiet live signal up to a mastered track.
-export function MixControls({
-  level,
-  pan,
-  levelDefault,
-  levelMax = 1,
-  onLevel,
-  onPan,
-}: {
-  level: number;
-  pan: number;
-  levelDefault: number;
-  levelMax?: number;
-  onLevel: (value: number) => void;
-  onPan: (value: number) => void;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-2">
-      <MiniSlider
-        label="Level"
-        valueLabel={`${Math.round(level * 100)}%`}
-        min={0}
-        max={levelMax}
-        step={0.01}
-        value={level}
-        onChange={(e) => onLevel(Number(e.target.value))}
-        onDoubleClick={() => onLevel(levelDefault)}
-      />
-      <MiniSlider
-        label="Pan"
-        valueLabel={panLabel(pan)}
-        min={-1}
-        max={1}
-        step={0.02}
-        value={pan}
-        onChange={(e) => onPan(Number(e.target.value))}
-        onDoubleClick={() => onPan(0)}
-      />
-    </div>
   );
 }
 

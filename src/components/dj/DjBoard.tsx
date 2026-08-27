@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { crossfadeGains } from "./audioEngine";
 import { DjDeck, type DjDeckHandle } from "./DjDeck";
-import { LiveInput } from "./LiveInput";
 import { SongBrowser } from "./SongBrowser";
 import type { DjSong } from "./types";
 import type { SaveSongBpmResult } from "@/app/(main)/admin/dj/actions";
@@ -199,8 +198,6 @@ export function DjBoard({
   }
 
   const { gainA, gainB } = crossfadeGains(crossfader);
-  // Whichever deck the crossfader currently favours drives Live Input's delay sync.
-  const activeDeckBpm = crossfader <= 0.5 ? (bpmA ?? bpmB) : (bpmB ?? bpmA);
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -281,12 +278,6 @@ export function DjBoard({
             </p>
           )}
         </div>
-
-        <LiveInput
-          audioCtx={audioCtx}
-          ensureAudioContext={ensureAudioContext}
-          activeDeckBpm={activeDeckBpm}
-        />
       </div>
 
       <div className="flex min-h-0 flex-col gap-4 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:w-72 lg:shrink-0">

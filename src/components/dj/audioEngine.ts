@@ -162,20 +162,117 @@ export function getImpulseResponse(ctx: AudioContext): AudioBuffer {
 
 // --- Live guitar-input helpers (used by LiveInput.tsx) ---
 
+/** Distortion voicings the live-input amp can run through. */
+export type DistModel = "overdrive" | "maiden" | "punk" | "fuzz";
+
+/** One sample of a distortion transfer curve: input `x` in -1..1 → output. */
+function shapeSample(x: number, amount: number, model: DistModel): number {
+  const a = Math.max(0, Math.min(1, amount));
+  switch (model) {
+    case "maiden": {
+      // Bright, asymmetric tube-style clip — even harmonics, tight and cutting.
+      const k = 3 + a * 60;
+      return x >= 0 ? Math.tanh(k * x) : Math.tanh(k * 0.8 * x) * 0.92;
+    }
+    case "punk": {
+      // Buzzy arctangent clip with a hard ceiling — fizzy 90s skate-punk crunch.
+      const k = 4 + a * 120;
+      const y = (2 / Math.PI) * Math.atan(k * x) * 1.1;
+      return Math.max(-0.95, Math.min(0.95, y));
+    }
+    case "fuzz": {
+      // Near-square splat — expands the clipped signal toward the rails.
+      const k = 6 + a * 200;
+      const y = Math.tanh(k * x);
+      return Math.sign(y) * Math.abs(y) ** 0.55;
+    }
+    default: {
+      // Original smooth soft-clip overdrive.
+      const k = a * 120;
+      const deg = Math.PI / 180;
+      return ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+    }
+  }
+}
+
 /**
- * Classic soft-clipping transfer curve for a WaveShaperNode.
- * `amount` is 0..1; 0 is nearly linear, 1 is a hard crunch.
+ * Transfer curve for the live-input WaveShaperNode. `amount` is 0..1 (0 is
+ * nearly linear, 1 is a hard crunch); `model` picks the clipping character.
  */
-export function makeDriveCurve(amount: number): Float32Array<ArrayBuffer> {
-  const k = Math.max(0, Math.min(1, amount)) * 120;
+export function makeDriveCurve(
+  amount: number,
+  model: DistModel = "overdrive",
+): Float32Array<ArrayBuffer> {
   const samples = 2048;
   const curve = new Float32Array(new ArrayBuffer(samples * 4));
-  const deg = Math.PI / 180;
   for (let i = 0; i < samples; i++) {
     const x = (i * 2) / samples - 1;
-    curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+    curve[i] = shapeSample(x, amount, model);
   }
   return curve;
+}
+
+/**
+ * Rough monophonic pitch estimate via band-limited autocorrelation — enough
+ * to drive a sub-octave oscillator from a single-note guitar line. Returns
+ * the fundamental in Hz, or null when the input is too quiet or unpitched.
+ * Only the lag range for `minHz`..`maxHz` is scanned, keeping it cheap enough
+ * to run in an animation-frame loop.
+ */
+export function detectPitch(
+  buf: Float32Array,
+  sampleRate: number,
+  minHz = 70,
+  maxHz = 900,
+): number | null {
+  const size = buf.length;
+  let power = 0;
+  for (let i = 0; i < size; i++) power += buf[i] * buf[i];
+  if (Math.sqrt(power / size) < 0.008) return null;
+
+  const minLag = Math.max(2, Math.floor(sampleRate / maxHz));
+  const maxLag = Math.min(size - 2, Math.ceil(sampleRate / minHz));
+
+  const corr = new Float32Array(maxLag + 2);
+  let bestLag = -1;
+  let bestVal = 0;
+  let prev = -Infinity;
+  let rising = false;
+
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let sum = 0;
+    for (let i = 0; i < size - lag; i++) sum += buf[i] * buf[i + lag];
+    const v = sum / (size - lag);
+    corr[lag] = v;
+
+    if (v > prev) {
+      rising = true;
+    } else if (rising) {
+      // Local maximum at the previous lag — keep the strongest one, and stop
+      // once later peaks fall well below it (that first peak is the period).
+      const peak = lag - 1;
+      if (corr[peak] > bestVal) {
+        bestVal = corr[peak];
+        bestLag = peak;
+      } else if (bestVal > 0 && corr[peak] < bestVal * 0.8) {
+        break;
+      }
+      rising = false;
+    }
+    prev = v;
+  }
+
+  if (bestLag < 1 || bestVal <= 0) return null;
+
+  // Parabolic interpolation around the peak for sub-sample accuracy.
+  const x1 = corr[bestLag - 1];
+  const x2 = corr[bestLag];
+  const x3 = corr[bestLag + 1] || 0;
+  const denom = x1 + x3 - 2 * x2;
+  const shift = denom ? (0.5 * (x1 - x3)) / denom : 0;
+
+  const freq = sampleRate / (bestLag + shift);
+  return freq >= minHz && freq <= maxHz ? freq : null;
 }
 
 const cabinetCache = new WeakMap<BaseAudioContext, Promise<AudioBuffer>>();

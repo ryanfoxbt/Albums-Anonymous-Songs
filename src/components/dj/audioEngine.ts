@@ -159,3 +159,99 @@ export function getImpulseResponse(ctx: AudioContext): AudioBuffer {
   impulseResponseCache.set(ctx, impulse);
   return impulse;
 }
+
+// --- Live guitar-input helpers (used by LiveInput.tsx) ---
+
+/**
+ * Classic soft-clipping transfer curve for a WaveShaperNode.
+ * `amount` is 0..1; 0 is nearly linear, 1 is a hard crunch.
+ */
+export function makeDriveCurve(amount: number): Float32Array<ArrayBuffer> {
+  const k = Math.max(0, Math.min(1, amount)) * 120;
+  const samples = 2048;
+  const curve = new Float32Array(new ArrayBuffer(samples * 4));
+  const deg = Math.PI / 180;
+  for (let i = 0; i < samples; i++) {
+    const x = (i * 2) / samples - 1;
+    curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+  }
+  return curve;
+}
+
+const cabinetCache = new WeakMap<BaseAudioContext, Promise<AudioBuffer>>();
+
+/**
+ * Renders a short, dark impulse that colours the signal like a mic'd 4x12
+ * — steep top-end rolloff with a small presence bump. Cached per context.
+ */
+export function getCabinetImpulse(ctx: AudioContext): Promise<AudioBuffer> {
+  const cached = cabinetCache.get(ctx);
+  if (cached) return cached;
+
+  const render = (async () => {
+    const rate = ctx.sampleRate;
+    const length = Math.max(1, Math.floor(rate * 0.05));
+    const offline = new OfflineAudioContext(1, length, rate);
+
+    const noiseBuffer = offline.createBuffer(1, length, rate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < length; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 2.5;
+    }
+    const noise = offline.createBufferSource();
+    noise.buffer = noiseBuffer;
+
+    const highpass = offline.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 90;
+    const presence = offline.createBiquadFilter();
+    presence.type = "peaking";
+    presence.frequency.value = 2000;
+    presence.gain.value = 4;
+    presence.Q.value = 1.2;
+    const lowpass = offline.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 4200;
+    lowpass.Q.value = 0.9;
+
+    noise
+      .connect(highpass)
+      .connect(presence)
+      .connect(lowpass)
+      .connect(offline.destination);
+    noise.start();
+    return offline.startRendering();
+  })();
+
+  cabinetCache.set(ctx, render);
+  render.catch(() => cabinetCache.delete(ctx));
+  return render;
+}
+
+/** Tempo-sync options for the live-input delay, as a fraction of a beat. */
+export const DELAY_DIVISIONS: { label: string; beats: number }[] = [
+  { label: "Free", beats: 0 },
+  { label: "1/4", beats: 1 },
+  { label: "1/8 dotted", beats: 0.75 },
+  { label: "1/8", beats: 0.5 },
+  { label: "1/16 dotted", beats: 0.375 },
+  { label: "1/16", beats: 0.25 },
+];
+
+/** AudioContext augmented with the output-routing API (Chromium). */
+export type AudioContextWithSink = AudioContext & {
+  setSinkId?: (sinkId: string) => Promise<void>;
+  sinkId?: string;
+};
+
+/** Turns a getUserMedia rejection into something worth showing a user. */
+export function describeMediaError(error: unknown): string {
+  if (error instanceof DOMException) {
+    if (error.name === "NotAllowedError")
+      return "Microphone access was blocked. Allow it for this site and try again.";
+    if (error.name === "NotFoundError") return "No audio input device was found.";
+    if (error.name === "NotReadableError")
+      return "The audio device is in use by another app (close your DAW or the Focusrite mixer).";
+  }
+  return "Couldn't open the audio input.";
+}

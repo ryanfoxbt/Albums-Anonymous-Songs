@@ -5,10 +5,17 @@ import { crossfadeGains } from "./audioEngine";
 import { DjDeck, type DjDeckHandle } from "./DjDeck";
 import { SongBrowser } from "./SongBrowser";
 import type { DjSong } from "./types";
+import type { SaveSongBpmResult } from "@/app/(main)/admin/dj/actions";
 
 const AUTO_DJ_TRANSITION_MS = 5000;
 
-export function DjBoard({ songs }: { songs: DjSong[] }) {
+export function DjBoard({
+  songs,
+  onSaveBpm,
+}: {
+  songs: DjSong[];
+  onSaveBpm?: (songId: string, bpm: number) => Promise<SaveSongBpmResult>;
+}) {
   const songsById = useMemo(() => new Map(songs.map((s) => [s.id, s])), [songs]);
 
   const [deckASong, setDeckASong] = useState<DjSong | null>(null);
@@ -27,6 +34,9 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
   const deckBRef = useRef<DjDeckHandle>(null);
   const transitionRef = useRef<number | null>(null);
   const kickstartedRef = useRef(false);
+  // Auto DJ shuffle bag: ids already played in the current cycle. A track
+  // won't be picked again until every song has had a turn.
+  const playedIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     return () => {
@@ -51,11 +61,25 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
     else setDeckBSong(song);
   }
 
-  function pickRandomSong(excludeIds: (string | undefined)[]): DjSong | null {
+  // Picks the next Auto DJ track from the shuffle bag: never replays a song
+  // until the whole library has cycled. `excludeIds` (the decks currently in
+  // play) are always skipped, so even the moment the bag wraps around can't
+  // land on a track that's already spinning.
+  function pickNextSong(excludeIds: (string | undefined)[]): DjSong | null {
     if (songs.length === 0) return null;
-    const pool = songs.filter((s) => !excludeIds.includes(s.id));
-    const candidates = pool.length > 0 ? pool : songs;
-    return candidates[Math.floor(Math.random() * candidates.length)];
+    const played = playedIdsRef.current;
+
+    let pool = songs.filter((s) => !played.has(s.id) && !excludeIds.includes(s.id));
+    if (pool.length === 0) {
+      // Every song has played this cycle — reshuffle, still skipping the decks in play.
+      played.clear();
+      pool = songs.filter((s) => !excludeIds.includes(s.id));
+    }
+    if (pool.length === 0) pool = songs;
+
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    played.add(pick.id);
+    return pick;
   }
 
   function animateCrossfadeTo(target: 0 | 1, onComplete?: () => void) {
@@ -82,10 +106,10 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
   useEffect(() => {
     if (!autoDj) return;
     if (!deckASong) {
-      const next = pickRandomSong([deckBSong?.id]);
+      const next = pickNextSong([deckBSong?.id]);
       if (next) loadSong("A", next.id);
     } else if (!deckBSong) {
-      const next = pickRandomSong([deckASong?.id]);
+      const next = pickNextSong([deckASong?.id]);
       if (next) loadSong("B", next.id);
     }
   }, [autoDj, deckASong, deckBSong]);
@@ -96,6 +120,8 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
   useEffect(() => {
     if (!autoDj) {
       kickstartedRef.current = false;
+      // Start each Auto DJ run with a fresh shuffle bag.
+      playedIdsRef.current.clear();
       return;
     }
     if (kickstartedRef.current || !deckASong || !deckBSong) return;
@@ -115,7 +141,7 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
     targetRef.current?.play();
     animateCrossfadeTo(target === "A" ? 0 : 1, () => {
       finishedRef.current?.pause();
-      const next = pickRandomSong([targetSong.id]);
+      const next = pickNextSong([targetSong.id]);
       if (next) loadSong(deck, next.id);
     });
   }
@@ -140,6 +166,7 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
             onDropSong={(id) => loadSong("A", id)}
             onBpmChange={setBpmA}
             onEnded={() => handleDeckEnded("A")}
+            onSaveBpm={onSaveBpm}
           />
           <DjDeck
             ref={deckBRef}
@@ -155,6 +182,7 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
             onDropSong={(id) => loadSong("B", id)}
             onBpmChange={setBpmB}
             onEnded={() => handleDeckEnded("B")}
+            onSaveBpm={onSaveBpm}
           />
         </div>
 
@@ -192,7 +220,8 @@ export function DjBoard({ songs }: { songs: DjSong[] }) {
           </div>
           {autoDj && (
             <p className="text-[10px] text-black/40 dark:text-white/40">
-              Auto DJ is on — a new random track will crossfade in whenever one ends.
+              Auto DJ is on — tracks crossfade automatically, and none repeats until
+              every song has played.
             </p>
           )}
         </div>

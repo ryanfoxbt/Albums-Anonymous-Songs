@@ -18,6 +18,7 @@ export type SongWithRelations = {
   audioUrl: string;
   downloadUrl: string;
   durationSeconds: number | null;
+  bpm: number | null;
   coverImageUrl: string | null;
   hidden: boolean;
   podcastEpisodeTitle: string | null;
@@ -122,6 +123,7 @@ function fallbackSongs(): SongWithRelations[] {
       audioUrl: song.audioUrl,
       downloadUrl: song.downloadUrl,
       durationSeconds: song.durationSeconds ?? null,
+      bpm: null,
       coverImageUrl: song.coverImageUrl ?? null,
       hidden: false,
       podcastEpisodeTitle: song.podcastEpisodeTitle ?? null,

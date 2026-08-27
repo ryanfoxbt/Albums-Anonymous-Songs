@@ -1,6 +1,7 @@
 import { DjBoard } from "@/components/dj/DjBoard";
 import { getSongs } from "@/lib/songs";
 import { formatArtistCredit } from "@/lib/artistCredit";
+import { saveSongBpm } from "./actions";
 
 export default async function AdminDjPage() {
   const songs = await getSongs({ includeHidden: true, sortBy: "title" });
@@ -14,6 +15,7 @@ export default async function AdminDjPage() {
     hidden: song.hidden,
     durationSeconds: song.durationSeconds,
     playCount: song.playCount ?? 0,
+    bpm: song.bpm,
   }));
 
   return (
@@ -24,7 +26,7 @@ export default async function AdminDjPage() {
           Load any two songs onto Deck A / Deck B and mix them.
         </p>
       </div>
-      <DjBoard songs={djSongs} />
+      <DjBoard songs={djSongs} onSaveBpm={saveSongBpm} />
     </div>
   );
 }

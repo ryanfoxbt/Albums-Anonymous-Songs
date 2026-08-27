@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import type { SaveSongBpmResult } from "@/app/(main)/admin/dj/actions";
 import { getImpulseResponse, loadTrack } from "./audioEngine";
 import { Turntable } from "./Turntable";
 import { DJ_DRAG_MIME, type DjSong } from "./types";
@@ -12,6 +13,19 @@ const FILTER_MAX_HIGHPASS = 4000;
 const FLANGER_BASE_DELAY = 0.006;
 const FLANGER_DEPTH = 0.004;
 const FLANGER_RATE_HZ = 0.22;
+
+// Three-band EQ: shelf/peak centre frequencies and the ± range of each knob.
+const EQ_LOW_HZ = 220;
+const EQ_MID_HZ = 1000;
+const EQ_HIGH_HZ = 3800;
+const EQ_MIN_DB = -24;
+const EQ_MAX_DB = 12;
+
+// Tap tempo: gap (ms) after which a new tap starts a fresh count, and the
+// plausible BPM window a tapped value has to land in to be accepted.
+const TAP_RESET_MS = 2000;
+const TAP_MIN_BPM = 40;
+const TAP_MAX_BPM = 300;
 
 export type DjDeckHandle = {
   play: () => void;
@@ -161,6 +175,8 @@ export const DjDeck = forwardRef<
     onBpmChange?: (bpm: number | null) => void;
     /** Fires when this deck's track finishes playing on its own — drives Auto DJ handoff. */
     onEnded?: () => void;
+    /** Persists a tapped BPM onto the Song record (admin only). */
+    onSaveBpm?: (songId: string, bpm: number) => Promise<SaveSongBpmResult>;
   }
 >(function DjDeck(
   {
@@ -176,12 +192,16 @@ export const DjDeck = forwardRef<
     onDropSong,
     onBpmChange,
     onEnded,
+    onSaveBpm,
   },
   ref,
 ) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const graphRef = useRef<{
     filter: BiquadFilterNode;
+    eqLow: BiquadFilterNode;
+    eqMid: BiquadFilterNode;
+    eqHigh: BiquadFilterNode;
     dryGain: GainNode;
     delay: DelayNode;
     feedback: GainNode;
@@ -193,11 +213,20 @@ export const DjDeck = forwardRef<
   } | null>(null);
   const loadedSongIdRef = useRef<string | null>(null);
   const scratchStopRef = useRef<(() => void) | null>(null);
+  const tapTimesRef = useRef<number[]>([]);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
   const [bpm, setBpm] = useState<number | null>(null);
+  const [savedBpm, setSavedBpm] = useState<number | null>(song?.bpm ?? null);
+  const [savingBpm, setSavingBpm] = useState(false);
+  const [justSavedBpm, setJustSavedBpm] = useState(false);
+  const [bpmError, setBpmError] = useState<string | null>(null);
+  const [tapCount, setTapCount] = useState(0);
+  const [eqLow, setEqLow] = useState(0);
+  const [eqMid, setEqMid] = useState(0);
+  const [eqHigh, setEqHigh] = useState(0);
   const [filterKnob, setFilterKnob] = useState(0);
   const [echoOn, setEchoOn] = useState(false);
   const [echoMix, setEchoMix] = useState(0.3);
@@ -230,6 +259,18 @@ export const DjDeck = forwardRef<
     const filter = audioCtx.createBiquadFilter();
     filter.type = "lowpass";
     filter.frequency.value = FILTER_NEUTRAL_FREQ;
+
+    // Three-band EQ, unity (0 dB) by default so it's transparent until touched.
+    const lowShelf = audioCtx.createBiquadFilter();
+    lowShelf.type = "lowshelf";
+    lowShelf.frequency.value = EQ_LOW_HZ;
+    const midPeak = audioCtx.createBiquadFilter();
+    midPeak.type = "peaking";
+    midPeak.frequency.value = EQ_MID_HZ;
+    midPeak.Q.value = 0.8;
+    const highShelf = audioCtx.createBiquadFilter();
+    highShelf.type = "highshelf";
+    highShelf.frequency.value = EQ_HIGH_HZ;
 
     const dryGain = audioCtx.createGain();
     dryGain.gain.value = 1;
@@ -265,19 +306,26 @@ export const DjDeck = forwardRef<
     const deckGain = audioCtx.createGain();
     deckGain.gain.value = gain;
 
+    // filter → EQ chain → (dry + every FX send), so the EQ shapes everything.
     source.connect(filter);
-    filter.connect(dryGain).connect(deckGain);
-    filter.connect(delay);
+    filter.connect(lowShelf);
+    lowShelf.connect(midPeak);
+    midPeak.connect(highShelf);
+    highShelf.connect(dryGain).connect(deckGain);
+    highShelf.connect(delay);
     delay.connect(feedback).connect(delay);
     delay.connect(wetGain).connect(deckGain);
-    filter.connect(convolver).connect(reverbWetGain).connect(deckGain);
-    filter.connect(flangerDelay);
+    highShelf.connect(convolver).connect(reverbWetGain).connect(deckGain);
+    highShelf.connect(flangerDelay);
     flangerDelay.connect(flangerFeedback).connect(flangerDelay);
     flangerDelay.connect(flangerWetGain).connect(deckGain);
     deckGain.connect(audioCtx.destination);
 
     graphRef.current = {
       filter,
+      eqLow: lowShelf,
+      eqMid: midPeak,
+      eqHigh: highShelf,
       dryGain,
       delay,
       feedback,
@@ -316,6 +364,15 @@ export const DjDeck = forwardRef<
 
   useEffect(() => {
     const graph = graphRef.current;
+    if (!graph || !audioCtx) return;
+    const now = audioCtx.currentTime;
+    graph.eqLow.gain.setTargetAtTime(eqLow, now, 0.01);
+    graph.eqMid.gain.setTargetAtTime(eqMid, now, 0.01);
+    graph.eqHigh.gain.setTargetAtTime(eqHigh, now, 0.01);
+  }, [eqLow, eqMid, eqHigh, audioCtx]);
+
+  useEffect(() => {
+    const graph = graphRef.current;
     if (!graph) return;
     graph.wetGain.gain.value = echoOn ? echoMix : 0;
   }, [echoOn, echoMix]);
@@ -351,21 +408,35 @@ export const DjDeck = forwardRef<
     setProgress(0);
     onTempoChange(1);
     setFilterKnob(0);
+    setEqLow(0);
+    setEqMid(0);
+    setEqHigh(0);
     setEchoOn(false);
     setReverbOn(false);
     setFlangerOn(false);
     setCuePoint(0);
     setBuffer(null);
-    setBpm(null);
-    onBpmChange?.(null);
+    tapTimesRef.current = [];
+    setTapCount(0);
+    setBpmError(null);
+    setJustSavedBpm(false);
+
+    // A previously-saved BPM on the record is the starting truth; the file's
+    // ID3 tag only fills in when there's no saved value yet.
+    const storedBpm = song.bpm ?? null;
+    setSavedBpm(storedBpm);
+    setBpm(storedBpm);
+    onBpmChange?.(storedBpm);
 
     if (audioCtx) {
       loadTrack(audioCtx, song.audioUrl)
         .then(({ buffer: buf, bpm: tagBpm }) => {
           if (loadedSongIdRef.current !== song.id) return;
           setBuffer(buf);
-          setBpm(tagBpm);
-          onBpmChange?.(tagBpm);
+          if (storedBpm == null && tagBpm != null) {
+            setBpm(tagBpm);
+            onBpmChange?.(tagBpm);
+          }
         })
         .catch(() => {
           // Waveform/BPM are nice-to-haves; playback still works without them.
@@ -453,6 +524,50 @@ export const DjDeck = forwardRef<
     setCuePoint(audio.currentTime);
   }
 
+  // Tap this in time with the track; the running average of the gaps between
+  // taps becomes the deck's BPM (which then also feeds Sync / beatmatching).
+  function registerTap() {
+    const now = performance.now();
+    const times = tapTimesRef.current;
+    if (times.length > 0 && now - times[times.length - 1] > TAP_RESET_MS) {
+      times.length = 0;
+    }
+    times.push(now);
+    if (times.length > 8) times.shift();
+    setTapCount(times.length);
+
+    if (times.length >= 2) {
+      const spans = times.slice(1).map((t, i) => t - times[i]);
+      const avgMs = spans.reduce((sum, s) => sum + s, 0) / spans.length;
+      const tapped = Math.round(60000 / avgMs);
+      if (Number.isFinite(tapped) && tapped >= TAP_MIN_BPM && tapped <= TAP_MAX_BPM) {
+        setBpm(tapped);
+        onBpmChange?.(tapped);
+        setBpmError(null);
+        setJustSavedBpm(false);
+      }
+    }
+  }
+
+  async function handleSaveBpm() {
+    if (!song || bpm == null || !onSaveBpm || savingBpm) return;
+    setSavingBpm(true);
+    setBpmError(null);
+    try {
+      const result = await onSaveBpm(song.id, bpm);
+      if (result.ok) {
+        setSavedBpm(result.bpm);
+        setJustSavedBpm(true);
+      } else {
+        setBpmError(result.error);
+      }
+    } catch {
+      setBpmError("Couldn't save BPM.");
+    } finally {
+      setSavingBpm(false);
+    }
+  }
+
   function syncTempo() {
     // Real beatmatching when both decks' BPM are known; otherwise just
     // copy the other deck's raw speed as a starting point.
@@ -525,15 +640,39 @@ export const DjDeck = forwardRef<
             Drop a song, or use &ldquo;→ {label}&rdquo;
           </span>
         )}
-        {bpm && (
-          <span
-            className="shrink-0 rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-black/50 dark:bg-white/10 dark:text-white/50"
-            title="From this file's ID3 tag"
-          >
-            {bpm} BPM
-          </span>
+        {song && (
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={registerTap}
+              title="Tap in time with the beat to set this deck's BPM"
+              className="rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-black/60 hover:bg-black/10 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
+            >
+              {tapCount === 1 ? "Tap…" : bpm != null ? `${bpm} BPM` : "Tap tempo"}
+            </button>
+            {onSaveBpm && bpm != null && bpm !== savedBpm && (
+              <button
+                type="button"
+                onClick={handleSaveBpm}
+                disabled={savingBpm}
+                title="Save this BPM onto the song record"
+                className="rounded-full border border-foreground bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background disabled:opacity-50"
+              >
+                {savingBpm ? "Saving…" : "Save"}
+              </button>
+            )}
+            {justSavedBpm && bpm === savedBpm && (
+              <span className="text-[10px] font-medium text-black/40 dark:text-white/40">
+                saved ✓
+              </span>
+            )}
+          </div>
         )}
       </div>
+
+      {bpmError && (
+        <p className="text-[10px] font-medium text-red-600 dark:text-red-400">{bpmError}</p>
+      )}
 
       <div className="flex items-center gap-3">
         <Turntable song={song} isPlaying={isPlaying} tempo={tempo} />
@@ -619,6 +758,42 @@ export const DjDeck = forwardRef<
           value={filterKnob}
           onChange={(e) => setFilterKnob(Number(e.target.value))}
           onDoubleClick={() => setFilterKnob(0)}
+        />
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <MiniSlider
+          label="EQ Low"
+          valueLabel={`${eqLow > 0 ? "+" : ""}${eqLow} dB`}
+          title="Low shelf — double-click to reset"
+          min={EQ_MIN_DB}
+          max={EQ_MAX_DB}
+          step={1}
+          value={eqLow}
+          onChange={(e) => setEqLow(Number(e.target.value))}
+          onDoubleClick={() => setEqLow(0)}
+        />
+        <MiniSlider
+          label="EQ Mid"
+          valueLabel={`${eqMid > 0 ? "+" : ""}${eqMid} dB`}
+          title="Mid peak — double-click to reset"
+          min={EQ_MIN_DB}
+          max={EQ_MAX_DB}
+          step={1}
+          value={eqMid}
+          onChange={(e) => setEqMid(Number(e.target.value))}
+          onDoubleClick={() => setEqMid(0)}
+        />
+        <MiniSlider
+          label="EQ High"
+          valueLabel={`${eqHigh > 0 ? "+" : ""}${eqHigh} dB`}
+          title="High shelf — double-click to reset"
+          min={EQ_MIN_DB}
+          max={EQ_MAX_DB}
+          step={1}
+          value={eqHigh}
+          onChange={(e) => setEqHigh(Number(e.target.value))}
+          onDoubleClick={() => setEqHigh(0)}
         />
       </div>
 

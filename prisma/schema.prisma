@@ -62,6 +62,7 @@ model Song {
   audioUrl        String
   downloadUrl     String
   durationSeconds Int?
+  bpm             Int?
   coverImageUrl   String?
   hidden          Boolean  @default(false)
   createdAt       DateTime @default(now())

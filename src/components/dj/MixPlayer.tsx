@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { trackMixPlay } from "@/lib/analyticsClient";
 import { DjBoard, type DjBoardHandle } from "./DjBoard";
+import { StickDancer, type StickDancerHandle } from "./StickDancer";
 import type { MixEvent } from "./mixTypes";
 import type { DjSong } from "./types";
 
@@ -25,9 +26,15 @@ export function MixPlayer({
   program: { durationMs: number; events: MixEvent[] };
 }) {
   const boardRef = useRef<DjBoardHandle>(null);
+  const dancerRef = useRef<StickDancerHandle>(null);
+  const hasDancer = useMemo(
+    () => program.events.some((e) => e.k === "dancer"),
+    [program],
+  );
   const [phase, setPhase] = useState<Phase>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [runId, setRunId] = useState(0);
+  const [grooveBpm, setGrooveBpm] = useState<number | null>(null);
 
   const rafRef = useRef<number | null>(null);
   const runningRef = useRef(false);
@@ -73,7 +80,9 @@ export function MixPlayer({
         cursorRef.current < events.length &&
         events[cursorRef.current].t <= now
       ) {
-        b?.applyEvent(events[cursorRef.current]);
+        const ev = events[cursorRef.current];
+        if (ev.k === "dancer") dancerRef.current?.applyEvent(ev);
+        else b?.applyEvent(ev);
         cursorRef.current += 1;
       }
       setElapsed(now);
@@ -164,7 +173,22 @@ export function MixPlayer({
         </div>
       </div>
 
-      <DjBoard key={runId} ref={boardRef} songs={songs} mode="playback" />
+      <DjBoard
+        key={runId}
+        ref={boardRef}
+        songs={songs}
+        mode="playback"
+        onGrooveChange={setGrooveBpm}
+      />
+
+      {hasDancer && (
+        <StickDancer
+          key={`dancer-${runId}`}
+          ref={dancerRef}
+          mode="replay"
+          bpm={grooveBpm}
+        />
+      )}
     </div>
   );
 }

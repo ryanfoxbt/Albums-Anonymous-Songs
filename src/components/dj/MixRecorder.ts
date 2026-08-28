@@ -16,6 +16,9 @@ function throttleKeyOf(e: RawEvent): string | null {
     case "fx":
       // Toggles (…On) are discrete — never throttle those.
       return e.key.endsWith("On") ? null : `fx:${e.deck}:${e.key}`;
+    case "dancer":
+      // A held A/D key repeats fast; a punch/kick is a one-off — keep those.
+      return e.move === "strut" ? "dancer" : null;
     default:
       return null;
   }

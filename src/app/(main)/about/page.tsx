@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 
@@ -17,6 +18,20 @@ export default function AboutPage() {
     <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold tracking-tight">What&apos;s this?</h1>
+
+        <figure className="flex flex-col gap-2">
+          <Image
+            src="/Images/TroyandRyan.jpg"
+            alt="Albums Anonymous hosts Troy Runsten and Ryan Fox"
+            width={1080}
+            height={1080}
+            priority
+            className="w-full max-w-sm rounded-2xl border border-black/10 dark:border-white/10"
+          />
+          <figcaption className="text-xs text-black/50 dark:text-white/50">
+            Troy Runsten &amp; Ryan Fox — your regular girl dads.
+          </figcaption>
+        </figure>
 
         <div className="flex flex-col gap-4 text-sm leading-relaxed text-black/80 dark:text-white/80">
           <p>

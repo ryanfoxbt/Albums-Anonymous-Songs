@@ -45,8 +45,13 @@ export const DjBoard = forwardRef<
     mode?: DjBoardMode;
     /** Live-recording sink. Called for every user (or Auto DJ) control change. */
     onEvent?: (event: RawMixEvent) => void;
+    /** Reports the crossfader-dominant deck's BPM (for the dancer's groove). */
+    onGrooveChange?: (bpm: number | null) => void;
   }
->(function DjBoard({ songs, onSaveBpm, mode = "live", onEvent }, ref) {
+>(function DjBoard(
+  { songs, onSaveBpm, mode = "live", onEvent, onGrooveChange },
+  ref,
+) {
   const isPlayback = mode === "playback";
   const songsById = useMemo(() => new Map(songs.map((s) => [s.id, s])), [songs]);
 
@@ -79,6 +84,17 @@ export const DjBoard = forwardRef<
   useEffect(() => {
     crossfaderRef.current = crossfader;
   }, [crossfader]);
+
+  // Report the "dominant" BPM — whichever deck the crossfader favours, falling
+  // back to the other. Drives the dancer's tempo-locked groove.
+  const onGrooveRef = useRef(onGrooveChange);
+  useEffect(() => {
+    onGrooveRef.current = onGrooveChange;
+  }, [onGrooveChange]);
+  useEffect(() => {
+    const dominant = crossfader <= 0.5 ? (bpmA ?? bpmB) : (bpmB ?? bpmA);
+    onGrooveRef.current?.(dominant);
+  }, [bpmA, bpmB, crossfader]);
   // Auto DJ shuffle bag: ids already played in the current cycle. A track
   // won't be picked again until every song has had a turn.
   const playedIdsRef = useRef<Set<string>>(new Set());

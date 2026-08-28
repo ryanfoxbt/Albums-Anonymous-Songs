@@ -6,6 +6,7 @@ import { isEmailUnlocked } from "@/lib/emailGate";
 import { DjBoard, type DjBoardHandle } from "./DjBoard";
 import { MixRecorder } from "./MixRecorder";
 import { MIX_MAX_MS, type RawMixEvent } from "./mixTypes";
+import { DANCER_HINT, StickDancer, type StickDancerHandle } from "./StickDancer";
 import type { DjSong } from "./types";
 
 type Status = "idle" | "recording" | "gate" | "saving" | "done" | "error";
@@ -25,6 +26,7 @@ function fmt(ms: number): string {
 
 export function DjStudio({ songs }: { songs: DjSong[] }) {
   const boardRef = useRef<DjBoardHandle>(null);
+  const dancerRef = useRef<StickDancerHandle>(null);
   const [recorder] = useState(() => new MixRecorder());
 
   const [status, setStatus] = useState<Status>("idle");
@@ -33,6 +35,8 @@ export function DjStudio({ songs }: { songs: DjSong[] }) {
   const [error, setError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [dancerOn, setDancerOn] = useState(false);
+  const [grooveBpm, setGrooveBpm] = useState<number | null>(null);
   const pendingRef = useRef<PendingMix | null>(null);
 
   // Deep-link: /dj?load=<songId> cues that track onto Deck A.
@@ -125,6 +129,8 @@ export function DjStudio({ songs }: { songs: DjSong[] }) {
     for (const event of boardRef.current?.snapshot() ?? []) {
       recorder.record(event);
     }
+    const dancerSnap = dancerRef.current?.snapshot();
+    if (dancerSnap) recorder.record(dancerSnap);
     setStatus("recording");
   };
 
@@ -265,9 +271,37 @@ export function DjStudio({ songs }: { songs: DjSong[] }) {
         {error && (
           <p className="w-full text-xs text-red-600 dark:text-red-400">{error}</p>
         )}
+
+        <button
+          type="button"
+          onClick={() => setDancerOn((v) => !v)}
+          aria-pressed={dancerOn}
+          title={dancerOn ? `${DANCER_HINT}  ·  click to hide` : "Dancer — click, then use the keyboard"}
+          className={`ml-auto rounded-full px-2 py-1 text-xs transition-opacity ${
+            dancerOn
+              ? "text-black/50 opacity-90 dark:text-white/50"
+              : "text-black/30 opacity-50 hover:opacity-100 dark:text-white/30"
+          }`}
+        >
+          🕺{dancerOn ? " ·" : ""}
+        </button>
       </div>
 
-      <DjBoard ref={boardRef} songs={songs} mode="live" onEvent={handleEvent} />
+      <DjBoard
+        ref={boardRef}
+        songs={songs}
+        mode="live"
+        onEvent={handleEvent}
+        onGrooveChange={setGrooveBpm}
+      />
+
+      {dancerOn && (
+        <StickDancer
+          ref={dancerRef}
+          bpm={grooveBpm}
+          onEvent={(e) => recorder.record(e)}
+        />
+      )}
 
       <EmailGateDialog
         open={status === "gate"}

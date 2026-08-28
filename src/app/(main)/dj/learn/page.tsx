@@ -273,11 +273,11 @@ export default function LearnToDjPage() {
             built from tight, punchy parody songs with clear sections, so a blend
             that&apos;s a beat off is instantly obvious, and a clean transition is
             genuinely satisfying (and funny). They&apos;re also the songs from the{" "}
-            <Link href="/listen" className="underline">
+            <Link href="/" className="underline">
               Albums Anonymous
             </Link>{" "}
-            comedy music podcast, so every track links back to the episode it was
-            written for.
+            comedy music podcast — pick your podcast app on the home page — and
+            every track links back to the episode it was written for.
           </p>
         </section>
 

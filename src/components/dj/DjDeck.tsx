@@ -52,6 +52,10 @@ export type DjDeckHandle = {
   isPlaying: () => boolean;
   /** Current playhead as a 0..1 fraction of the track (0 if unknown). */
   currentPos: () => number;
+  /** iOS: a gesture-initiated play()/pause() so this <audio> can be started
+   *  programmatically later. Needed by the /mix replay, where one tap has to
+   *  drive both decks over time and iOS otherwise blocks the deferred play(). */
+  primeAudio: () => void;
 };
 
 type ScratchPattern = {
@@ -216,6 +220,20 @@ export const DjDeck = forwardRef<
         return 0;
       }
       return audio.currentTime / audio.duration;
+    },
+    primeAudio: () => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      try {
+        // A gesture-initiated play() marks this element "user-activated" for
+        // iOS, so the replay scheduler's later programmatic play() is allowed.
+        // Pause synchronously — the scheduler drives real playback from here.
+        const p = audio.play();
+        audio.pause();
+        if (p && typeof p.then === "function") p.catch(() => {});
+      } catch {
+        // element not ready — harmless
+      }
     },
   }));
 
@@ -623,6 +641,7 @@ export const DjDeck = forwardRef<
       <audio
         ref={audioRef}
         crossOrigin="anonymous"
+        preload="auto"
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onTimeUpdate={(e) => {

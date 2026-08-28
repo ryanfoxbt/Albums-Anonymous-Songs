@@ -56,12 +56,19 @@ export function MixPlayer({
       trackMixPlay(slug);
     }
     const ctx = board.ensureAudioContext();
+    // iOS: while the tap's user activation is still fresh, unlock BOTH deck
+    // <audio> elements and resume the context. Without the prime, deck B's
+    // play() — issued seconds later by the scheduler — is silently blocked
+    // (its scratch still works because that's a buffer source, not a media
+    // element). The graph is already built (warm-up creates the context on
+    // mount), so this play() happens after createMediaElementSource.
+    board.primeDecks();
     try {
       if (ctx.state !== "running") await ctx.resume();
     } catch {
       // no user activation — play() below will still try
     }
-    // Let the decks build their audio graph off the just-created context.
+    // Let the decks settle before the scheduler drives them.
     await new Promise((r) => requestAnimationFrame(r));
 
     cursorRef.current = 0;
@@ -112,11 +119,18 @@ export function MixPlayer({
 
   useEffect(() => stopLoop, [stopLoop]);
 
-  // Warm up: cue each deck's opening track so its audio starts buffering
-  // before the viewer presses play. Re-runs after a restart remount.
+  // Warm up: build the audio graph now (it stays suspended until the Play
+  // gesture) so each deck's <audio> is routed through a MediaElementSource
+  // *before* the prime/play calls, and cue each deck's opening track so it's
+  // already buffering. Re-runs after a restart remount.
   useEffect(() => {
     const board = boardRef.current;
     if (!board) return;
+    try {
+      board.ensureAudioContext();
+    } catch {
+      // a browser refusing a pre-gesture AudioContext — start() will retry
+    }
     const seenDecks = new Set<string>();
     for (const e of program.events) {
       if (e.k === "load" && !seenDecks.has(e.deck)) {

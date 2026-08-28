@@ -35,6 +35,9 @@ export type DjBoardHandle = {
   /** Full current state as t=0 events, so a recording captures whatever was
    *  already set up before Record was pressed. */
   snapshot: () => RawMixEvent[];
+  /** iOS unlock: call inside a user gesture so both decks' <audio> elements
+   *  can be started programmatically by the replay scheduler afterwards. */
+  primeDecks: () => void;
 };
 
 export const DjBoard = forwardRef<
@@ -231,6 +234,10 @@ export const DjBoard = forwardRef<
     ensureAudioContext,
     getAudioContext: () => audioCtxRef.current,
     snapshot,
+    primeDecks: () => {
+      deckARef.current?.primeAudio();
+      deckBRef.current?.primeAudio();
+    },
     applyEvent: (event: RawMixEvent) => {
       applyingRef.current = true;
       try {

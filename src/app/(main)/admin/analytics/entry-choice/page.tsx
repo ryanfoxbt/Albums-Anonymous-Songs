@@ -29,6 +29,7 @@ export default async function AdminAnalyticsEntryChoicePage({
     { key: "spotify", label: "Spotify", color: "#1DB954" },
     { key: "apple", label: "Apple", color: "#A855F7" },
     { key: "listen", label: "Listen (site)", color: "#F760D6" },
+    { key: "dj", label: "DJ Booth", color: "#8B5CF6" },
     { key: "other", label: "Other / direct", color: "rgba(120,120,120,0.5)" },
   ] as const;
 

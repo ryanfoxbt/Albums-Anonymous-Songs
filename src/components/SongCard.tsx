@@ -6,6 +6,7 @@ import { buildContinuousQueue } from "@/lib/continuousPlay";
 import { toPlayerSong } from "@/lib/playerSong";
 import type { SongWithRelations } from "@/lib/songs";
 import { AudioPlayer } from "./AudioPlayer";
+import { DownloadButton } from "./DownloadButton";
 import { usePlayer } from "./player/PlayerProvider";
 
 export function SongCard({
@@ -46,8 +47,9 @@ export function SongCard({
         </span>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <AudioPlayer songId={song.id} title={song.title} onPlay={handlePlay} />
+        <DownloadButton slug={song.slug} />
       </div>
     </li>
   );

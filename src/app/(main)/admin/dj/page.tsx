@@ -17,6 +17,9 @@ export default async function AdminDjPage() {
     playCount: song.playCount ?? 0,
     createdAt: song.createdAt,
     bpm: song.bpm,
+    podcastEpisodeTitle: song.podcastEpisodeTitle,
+    podcastEpisodeUrl: song.podcastEpisodeUrl,
+    firstHeardOnEpisode: song.firstHeardOnEpisode,
   }));
 
   return (

@@ -1,11 +1,13 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { SaveSongBpmResult } from "@/app/(main)/admin/dj/actions";
+import { trackPodcastClick } from "@/lib/analyticsClient";
 import { getImpulseResponse, loadTrack } from "./audioEngine";
 import { FxToggle, MiniSlider } from "./controls";
 import { Turntable } from "./Turntable";
-import { DJ_DRAG_MIME, type DjSong } from "./types";
+import { DJ_DRAG_MIME, type DeckFx, type DjSong } from "./types";
 import { Waveform } from "./Waveform";
 
 const FILTER_NEUTRAL_FREQ = 22050;
@@ -28,9 +30,28 @@ const TAP_RESET_MS = 2000;
 const TAP_MIN_BPM = 40;
 const TAP_MAX_BPM = 300;
 
+/** Momentary actions the deck performs — reported so a recorder can log them.
+ *  The imperative handle methods do the same things WITHOUT reporting (that's
+ *  the replay path). */
+export type DeckAction =
+  | { k: "play" }
+  | { k: "pause" }
+  | { k: "seek"; pos: number }
+  | { k: "cueSet" }
+  | { k: "cue" }
+  | { k: "scratch"; pattern: "A" | "B" | "C" };
+
 export type DjDeckHandle = {
   play: () => void;
   pause: () => void;
+  seek: (fraction: number) => void;
+  jumpToCue: () => void;
+  setCueHere: () => void;
+  triggerScratch: (pattern: "A" | "B" | "C") => void;
+  /** For the record-start snapshot: is this deck's <audio> currently playing? */
+  isPlaying: () => boolean;
+  /** Current playhead as a 0..1 fraction of the track (0 if unknown). */
+  currentPos: () => number;
 };
 
 type ScratchPattern = {
@@ -117,6 +138,13 @@ export const DjDeck = forwardRef<
     onEnded?: () => void;
     /** Persists a tapped BPM onto the Song record (admin only). */
     onSaveBpm?: (songId: string, bpm: number) => Promise<SaveSongBpmResult>;
+    /** Controlled continuous/toggle FX state (lifted to DjBoard). */
+    fx: DeckFx;
+    onFx: (key: keyof DeckFx, value: number | boolean) => void;
+    /** Reports a momentary user action (play/pause/seek/cue/scratch). */
+    onAction?: (action: DeckAction) => void;
+    /** Playback mode — every control is read-only and driven externally. */
+    disabled?: boolean;
   }
 >(function DjDeck(
   {
@@ -134,9 +162,14 @@ export const DjDeck = forwardRef<
     onBpmChange,
     onEnded,
     onSaveBpm,
+    fx,
+    onFx,
+    onAction,
+    disabled = false,
   },
   ref,
 ) {
+  const pathname = usePathname();
   const audioRef = useRef<HTMLAudioElement>(null);
   const graphRef = useRef<{
     filter: BiquadFilterNode;
@@ -165,17 +198,6 @@ export const DjDeck = forwardRef<
   const [justSavedBpm, setJustSavedBpm] = useState(false);
   const [bpmError, setBpmError] = useState<string | null>(null);
   const [tapCount, setTapCount] = useState(0);
-  const [eqLow, setEqLow] = useState(0);
-  const [eqMid, setEqMid] = useState(0);
-  const [eqHigh, setEqHigh] = useState(0);
-  const [filterKnob, setFilterKnob] = useState(0);
-  const [echoOn, setEchoOn] = useState(false);
-  const [echoMix, setEchoMix] = useState(0.3);
-  const [reverbOn, setReverbOn] = useState(false);
-  const [reverbMix, setReverbMix] = useState(0.35);
-  const [flangerOn, setFlangerOn] = useState(false);
-  const [flangerMix, setFlangerMix] = useState(0.5);
-  const [trim, setTrim] = useState(1);
   const [cuePoint, setCuePoint] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const [scratching, setScratching] = useState(false);
@@ -183,6 +205,18 @@ export const DjDeck = forwardRef<
   useImperativeHandle(ref, () => ({
     play: () => void resumeAndPlay(),
     pause: () => audioRef.current?.pause(),
+    seek: (fraction: number) => seekTo(fraction),
+    jumpToCue: () => jumpToCue(),
+    setCueHere: () => setCueHere(),
+    triggerScratch: (pattern) => triggerScratch(pattern),
+    isPlaying: () => !!audioRef.current && !audioRef.current.paused,
+    currentPos: () => {
+      const audio = audioRef.current;
+      if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) {
+        return 0;
+      }
+      return audio.currentTime / audio.duration;
+    },
   }));
 
   // Bring the AudioContext up *before* the element starts. resume() is async,
@@ -302,59 +336,64 @@ export const DjDeck = forwardRef<
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph || !audioCtx) return;
-    graph.deckGain.gain.setTargetAtTime(gain * trim, audioCtx.currentTime, 0.01);
-  }, [gain, trim, audioCtx]);
+    graph.deckGain.gain.setTargetAtTime(
+      gain * fx.trim,
+      audioCtx.currentTime,
+      0.01,
+    );
+  }, [gain, fx.trim, audioCtx]);
 
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph) return;
-    if (filterKnob === 0) {
+    if (fx.filter === 0) {
       graph.filter.type = "lowpass";
       graph.filter.frequency.value = FILTER_NEUTRAL_FREQ;
-    } else if (filterKnob < 0) {
+    } else if (fx.filter < 0) {
       graph.filter.type = "lowpass";
-      const t = -filterKnob; // 0..1
+      const t = -fx.filter; // 0..1
       graph.filter.frequency.value =
         FILTER_NEUTRAL_FREQ + t * (FILTER_MIN_LOWPASS - FILTER_NEUTRAL_FREQ);
     } else {
       graph.filter.type = "highpass";
-      graph.filter.frequency.value = 20 + filterKnob * (FILTER_MAX_HIGHPASS - 20);
+      graph.filter.frequency.value = 20 + fx.filter * (FILTER_MAX_HIGHPASS - 20);
     }
-  }, [filterKnob]);
+  }, [fx.filter]);
 
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph || !audioCtx) return;
     const now = audioCtx.currentTime;
-    graph.eqLow.gain.setTargetAtTime(eqLow, now, 0.01);
-    graph.eqMid.gain.setTargetAtTime(eqMid, now, 0.01);
-    graph.eqHigh.gain.setTargetAtTime(eqHigh, now, 0.01);
-  }, [eqLow, eqMid, eqHigh, audioCtx]);
+    graph.eqLow.gain.setTargetAtTime(fx.eqLow, now, 0.01);
+    graph.eqMid.gain.setTargetAtTime(fx.eqMid, now, 0.01);
+    graph.eqHigh.gain.setTargetAtTime(fx.eqHigh, now, 0.01);
+  }, [fx.eqLow, fx.eqMid, fx.eqHigh, audioCtx]);
 
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph) return;
-    graph.wetGain.gain.value = echoOn ? echoMix : 0;
-  }, [echoOn, echoMix]);
+    graph.wetGain.gain.value = fx.echoOn ? fx.echoMix : 0;
+  }, [fx.echoOn, fx.echoMix]);
 
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph) return;
-    graph.reverbWetGain.gain.value = reverbOn ? reverbMix : 0;
-  }, [reverbOn, reverbMix]);
+    graph.reverbWetGain.gain.value = fx.reverbOn ? fx.reverbMix : 0;
+  }, [fx.reverbOn, fx.reverbMix]);
 
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph) return;
-    graph.flangerWetGain.gain.value = flangerOn ? flangerMix : 0;
-  }, [flangerOn, flangerMix]);
+    graph.flangerWetGain.gain.value = fx.flangerOn ? fx.flangerMix : 0;
+  }, [fx.flangerOn, fx.flangerMix]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (audio) audio.playbackRate = tempo;
   }, [tempo]);
 
-  // Load a new song into this deck.
+  // Load a new song into this deck. FX + tempo are reset by DjBoard (they're
+  // lifted props now); this only handles the deck-local + audio-element side.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !song || loadedSongIdRef.current === song.id) return;
@@ -366,14 +405,6 @@ export const DjDeck = forwardRef<
     audio.currentTime = 0;
     setIsPlaying(false);
     setProgress(0);
-    onTempoChange(1);
-    setFilterKnob(0);
-    setEqLow(0);
-    setEqMid(0);
-    setEqHigh(0);
-    setEchoOn(false);
-    setReverbOn(false);
-    setFlangerOn(false);
     setCuePoint(0);
     setBuffer(null);
     tapTimesRef.current = [];
@@ -419,11 +450,16 @@ export const DjDeck = forwardRef<
     return () => scratchStopRef.current?.();
   }, []);
 
-  function togglePlay() {
+  function handlePlayButton() {
     const audio = audioRef.current;
-    if (!audio || !song) return;
-    if (audio.paused) void resumeAndPlay();
-    else audio.pause();
+    if (!audio || !song || disabled) return;
+    if (audio.paused) {
+      void resumeAndPlay();
+      onAction?.({ k: "play" });
+    } else {
+      audio.pause();
+      onAction?.({ k: "pause" });
+    }
   }
 
   function triggerScratch(patternKey: "A" | "B" | "C") {
@@ -492,6 +528,12 @@ export const DjDeck = forwardRef<
     setCuePoint(audio.currentTime);
   }
 
+  function seekTo(fraction: number) {
+    const audio = audioRef.current;
+    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+    audio.currentTime = fraction * audio.duration;
+  }
+
   // Tap this in time with the track; the running average of the gaps between
   // taps becomes the deck's BPM (which then also feeds Sync / beatmatching).
   function registerTap() {
@@ -548,14 +590,15 @@ export const DjDeck = forwardRef<
   }
 
   function handleSeek(fraction: number) {
-    const audio = audioRef.current;
-    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
-    audio.currentTime = fraction * audio.duration;
+    if (disabled) return;
+    seekTo(fraction);
+    onAction?.({ k: "seek", pos: fraction });
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragOver(false);
+    if (disabled) return;
     const id = e.dataTransfer.getData(DJ_DRAG_MIME);
     if (id) onDropSong(id);
   }
@@ -567,7 +610,7 @@ export const DjDeck = forwardRef<
     <div
       onDragOver={(e) => {
         e.preventDefault();
-        setIsDragOver(true);
+        if (!disabled) setIsDragOver(true);
       }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
@@ -600,8 +643,38 @@ export const DjDeck = forwardRef<
           Deck {label}
         </span>
         {song ? (
-          <span className="min-w-0 truncate text-xs font-medium">
-            {song.title} <span className="text-black/50 dark:text-white/50">— {song.artistName}</span>
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium">
+            <span className="min-w-0 truncate">
+              {song.title}{" "}
+              <span className="text-black/50 dark:text-white/50">
+                — {song.artistName}
+              </span>
+            </span>
+            {song.podcastEpisodeUrl && (
+              <a
+                href={song.podcastEpisodeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() =>
+                  trackPodcastClick(
+                    song.id,
+                    song.podcastEpisodeUrl!,
+                    pathname ?? "/dj",
+                  )
+                }
+                title={
+                  song.podcastEpisodeTitle
+                    ? `First heard on: ${song.podcastEpisodeTitle}`
+                    : "Hear this on the podcast"
+                }
+                className="shrink-0 rounded-full border border-violet-400/50 bg-violet-600/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 hover:bg-violet-600/20 dark:text-violet-300"
+              >
+                {song.firstHeardOnEpisode != null
+                  ? `Ep ${song.firstHeardOnEpisode}`
+                  : "Podcast"}{" "}
+                ↗
+              </a>
+            )}
           </span>
         ) : (
           <span className="truncate text-xs text-black/40 dark:text-white/40">
@@ -613,8 +686,9 @@ export const DjDeck = forwardRef<
             <button
               type="button"
               onClick={registerTap}
+              disabled={disabled}
               title="Tap in time with the beat to set this deck's BPM"
-              className="rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-black/60 hover:bg-black/10 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
+              className="rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-black/60 hover:bg-black/10 disabled:opacity-40 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
             >
               {tapCount === 1 ? "Tap…" : bpm != null ? `${bpm} BPM` : "Tap tempo"}
             </button>
@@ -647,8 +721,8 @@ export const DjDeck = forwardRef<
         <div className="grid flex-1 grid-cols-2 gap-1.5">
           <button
             type="button"
-            onClick={togglePlay}
-            disabled={!song}
+            onClick={handlePlayButton}
+            disabled={!song || disabled}
             aria-label={isPlaying ? `Pause deck ${label}` : `Play deck ${label}`}
             className={`${buttonClass} h-8`}
           >
@@ -666,7 +740,7 @@ export const DjDeck = forwardRef<
           <button
             type="button"
             onClick={syncTempo}
-            disabled={!song || !otherSong}
+            disabled={!song || !otherSong || disabled}
             title={`Match this deck's tempo to Deck ${label === "A" ? "B" : "A"}${bpm && otherBpm ? " (beatmatched)" : ""}`}
             className={`${buttonClass} h-8`}
           >
@@ -674,8 +748,11 @@ export const DjDeck = forwardRef<
           </button>
           <button
             type="button"
-            onClick={jumpToCue}
-            disabled={!song}
+            onClick={() => {
+              jumpToCue();
+              onAction?.({ k: "cue" });
+            }}
+            disabled={!song || disabled}
             title={`Jump to ${cuePoint.toFixed(1)}s`}
             className={`${buttonClass} h-8`}
           >
@@ -683,8 +760,11 @@ export const DjDeck = forwardRef<
           </button>
           <button
             type="button"
-            onClick={setCueHere}
-            disabled={!song}
+            onClick={() => {
+              setCueHere();
+              onAction?.({ k: "cueSet" });
+            }}
+            disabled={!song || disabled}
             title="Store the current position as this deck's cue point"
             className={`${buttonClass} h-8`}
           >
@@ -703,83 +783,98 @@ export const DjDeck = forwardRef<
           max={1.5}
           step={0.01}
           value={tempo}
+          disabled={disabled}
           onChange={(e) => onTempoChange(Number(e.target.value))}
-          onDoubleClick={() => onTempoChange(1)}
+          onDoubleClick={() => !disabled && onTempoChange(1)}
         />
         <MiniSlider
           label="Volume"
-          valueLabel={`${Math.round(trim * 100)}%`}
+          valueLabel={`${Math.round(fx.trim * 100)}%`}
           min={0}
           max={1}
           step={0.01}
-          value={trim}
-          onChange={(e) => setTrim(Number(e.target.value))}
-          onDoubleClick={() => setTrim(1)}
+          value={fx.trim}
+          disabled={disabled}
+          onChange={(e) => onFx("trim", Number(e.target.value))}
+          onDoubleClick={() => !disabled && onFx("trim", 1)}
         />
         <MiniSlider
           label="Filter"
-          valueLabel={`${filterKnob > 0 ? "+" : ""}${Math.round(filterKnob * 100)}%`}
+          valueLabel={`${fx.filter > 0 ? "+" : ""}${Math.round(fx.filter * 100)}%`}
           title="Low ← neutral → high"
           min={-1}
           max={1}
           step={0.01}
-          value={filterKnob}
-          onChange={(e) => setFilterKnob(Number(e.target.value))}
-          onDoubleClick={() => setFilterKnob(0)}
+          value={fx.filter}
+          disabled={disabled}
+          onChange={(e) => onFx("filter", Number(e.target.value))}
+          onDoubleClick={() => !disabled && onFx("filter", 0)}
         />
       </div>
 
       <div className="grid grid-cols-3 gap-2">
         <MiniSlider
           label="EQ Low"
-          valueLabel={`${eqLow > 0 ? "+" : ""}${eqLow} dB`}
+          valueLabel={`${fx.eqLow > 0 ? "+" : ""}${fx.eqLow} dB`}
           title="Low shelf — double-click to reset"
           min={EQ_MIN_DB}
           max={EQ_MAX_DB}
           step={1}
-          value={eqLow}
-          onChange={(e) => setEqLow(Number(e.target.value))}
-          onDoubleClick={() => setEqLow(0)}
+          value={fx.eqLow}
+          disabled={disabled}
+          onChange={(e) => onFx("eqLow", Number(e.target.value))}
+          onDoubleClick={() => !disabled && onFx("eqLow", 0)}
         />
         <MiniSlider
           label="EQ Mid"
-          valueLabel={`${eqMid > 0 ? "+" : ""}${eqMid} dB`}
+          valueLabel={`${fx.eqMid > 0 ? "+" : ""}${fx.eqMid} dB`}
           title="Mid peak — double-click to reset"
           min={EQ_MIN_DB}
           max={EQ_MAX_DB}
           step={1}
-          value={eqMid}
-          onChange={(e) => setEqMid(Number(e.target.value))}
-          onDoubleClick={() => setEqMid(0)}
+          value={fx.eqMid}
+          disabled={disabled}
+          onChange={(e) => onFx("eqMid", Number(e.target.value))}
+          onDoubleClick={() => !disabled && onFx("eqMid", 0)}
         />
         <MiniSlider
           label="EQ High"
-          valueLabel={`${eqHigh > 0 ? "+" : ""}${eqHigh} dB`}
+          valueLabel={`${fx.eqHigh > 0 ? "+" : ""}${fx.eqHigh} dB`}
           title="High shelf — double-click to reset"
           min={EQ_MIN_DB}
           max={EQ_MAX_DB}
           step={1}
-          value={eqHigh}
-          onChange={(e) => setEqHigh(Number(e.target.value))}
-          onDoubleClick={() => setEqHigh(0)}
+          value={fx.eqHigh}
+          disabled={disabled}
+          onChange={(e) => onFx("eqHigh", Number(e.target.value))}
+          onDoubleClick={() => !disabled && onFx("eqHigh", 0)}
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <FxToggle label="Echo" on={echoOn} onToggle={() => setEchoOn((v) => !v)} mix={echoMix} onMixChange={setEchoMix} />
+        <FxToggle
+          label="Echo"
+          on={fx.echoOn}
+          disabled={disabled}
+          onToggle={() => onFx("echoOn", !fx.echoOn)}
+          mix={fx.echoMix}
+          onMixChange={(v) => onFx("echoMix", v)}
+        />
         <FxToggle
           label="Reverb"
-          on={reverbOn}
-          onToggle={() => setReverbOn((v) => !v)}
-          mix={reverbMix}
-          onMixChange={setReverbMix}
+          on={fx.reverbOn}
+          disabled={disabled}
+          onToggle={() => onFx("reverbOn", !fx.reverbOn)}
+          mix={fx.reverbMix}
+          onMixChange={(v) => onFx("reverbMix", v)}
         />
         <FxToggle
           label="Flanger"
-          on={flangerOn}
-          onToggle={() => setFlangerOn((v) => !v)}
-          mix={flangerMix}
-          onMixChange={setFlangerMix}
+          on={fx.flangerOn}
+          disabled={disabled}
+          onToggle={() => onFx("flangerOn", !fx.flangerOn)}
+          mix={fx.flangerMix}
+          onMixChange={(v) => onFx("flangerMix", v)}
         />
         <div className="flex items-center gap-2">
           <span className="w-16 shrink-0 text-[10px] font-medium text-black/50 dark:text-white/50">
@@ -790,8 +885,11 @@ export const DjDeck = forwardRef<
               <button
                 key={key}
                 type="button"
-                onClick={() => triggerScratch(key)}
-                disabled={!song || !buffer || scratching}
+                onClick={() => {
+                  triggerScratch(key);
+                  onAction?.({ k: "scratch", pattern: key });
+                }}
+                disabled={!song || !buffer || scratching || disabled}
                 title={SCRATCH_PATTERNS[key].label}
                 className={`${buttonClass} h-7`}
               >

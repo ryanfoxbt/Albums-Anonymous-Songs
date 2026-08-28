@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { useUser } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import { trackSongPlay, trackSongProgress } from "@/lib/analyticsClient";
 
@@ -20,8 +19,6 @@ type PlayerContextValue = {
   playSong: (song: PlayerSong) => void;
   playQueue: (songs: PlayerSong[], startIndex: number) => void;
   togglePlay: () => void;
-  streamLimitReached: boolean;
-  dismissStreamLimit: () => void;
 };
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -55,8 +52,6 @@ export function PlayerProvider({
   const queueIndexRef = useRef(0);
   const [currentSong, setCurrentSong] = useState<PlayerSong | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [streamLimitReached, setStreamLimitReached] = useState(false);
-  const { isSignedIn } = useUser();
 
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
@@ -171,8 +166,6 @@ export function PlayerProvider({
   };
 
   const handleEnded = () => playNext();
-
-  const dismissStreamLimit = () => setStreamLimitReached(false);
 
   const updatePositionState = () => {
     const audio = audioRef.current;
@@ -312,8 +305,6 @@ export function PlayerProvider({
         playSong,
         playQueue,
         togglePlay,
-        streamLimitReached: streamLimitReached && !isSignedIn,
-        dismissStreamLimit,
       }}
     >
       {children}

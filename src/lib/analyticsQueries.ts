@@ -227,6 +227,7 @@ export type EntryChoiceBreakdown = {
   youtube: number;
   apple: number;
   listen: number;
+  dj: number;
   other: number;
   total: number;
 };
@@ -242,10 +243,16 @@ export async function getEntryChoiceBreakdown(
     _count: { id: true },
   });
 
-  const counts = { spotify: 0, youtube: 0, apple: 0, listen: 0, other: 0 };
+  const counts = { spotify: 0, youtube: 0, apple: 0, listen: 0, dj: 0, other: 0 };
   for (const row of rows) {
     const key = row.entryChoice;
-    if (key === "spotify" || key === "youtube" || key === "apple" || key === "listen") {
+    if (
+      key === "spotify" ||
+      key === "youtube" ||
+      key === "apple" ||
+      key === "listen" ||
+      key === "dj"
+    ) {
       counts[key] = row._count.id;
     } else {
       counts.other += row._count.id;
@@ -253,7 +260,12 @@ export async function getEntryChoiceBreakdown(
   }
 
   const total =
-    counts.spotify + counts.youtube + counts.apple + counts.listen + counts.other;
+    counts.spotify +
+    counts.youtube +
+    counts.apple +
+    counts.listen +
+    counts.dj +
+    counts.other;
   return { ...counts, total };
 }
 
@@ -782,4 +794,93 @@ export async function getUtmLinks(): Promise<UtmLinkWithStats[]> {
       return { ...link, attributedSessions };
     }),
   );
+}
+
+// --- DJ Booth ---
+
+export type DjBoothStats = {
+  boothViews: number;
+  learnViews: number;
+  mixesCreated: number;
+  mixCreators: number;
+  totalMixes: number;
+  totalMixViews: number;
+  totalMixPlays: number;
+  recentMixes: {
+    slug: string;
+    createdAt: Date;
+    songCount: number;
+    durationMs: number;
+    viewCount: number;
+    playCount: number;
+  }[];
+  topSongs: { title: string; mixCount: number }[];
+};
+
+export async function getDjBoothStats(range: DateRange): Promise<DjBoothStats> {
+  const inRange = { gte: range.from, lte: range.to };
+
+  const [
+    boothViews,
+    learnViews,
+    mixesCreated,
+    creatorRows,
+    totalMixes,
+    counters,
+    recentRows,
+    topSongRows,
+  ] = await Promise.all([
+    prisma.pageView.count({ where: { path: "/dj", visitedAt: inRange } }),
+    prisma.pageView.count({ where: { path: "/dj/learn", visitedAt: inRange } }),
+    prisma.djMix.count({ where: { createdAt: inRange } }),
+    prisma.djMix.findMany({
+      where: { createdAt: inRange, visitorId: { not: null } },
+      select: { visitorId: true },
+      distinct: ["visitorId"],
+    }),
+    prisma.djMix.count(),
+    prisma.djMix.aggregate({ _sum: { viewCount: true, playCount: true } }),
+    prisma.djMix.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 15,
+      select: {
+        slug: true,
+        createdAt: true,
+        songIds: true,
+        durationMs: true,
+        viewCount: true,
+        playCount: true,
+      },
+    }),
+    prisma.$queryRaw<{ title: string; mix_count: bigint }[]>`
+      SELECT s.title AS title, count(*)::bigint AS mix_count
+      FROM "DjMix" m, unnest(m."songIds") AS sid
+      JOIN "Song" s ON s.id = sid
+      GROUP BY s.id, s.title
+      ORDER BY mix_count DESC, s.title ASC
+      LIMIT 10
+    `,
+  ]);
+
+  return {
+    boothViews,
+    learnViews,
+    mixesCreated,
+    mixCreators: creatorRows.length,
+    totalMixes,
+    totalMixViews: counters._sum.viewCount ?? 0,
+    totalMixPlays: counters._sum.playCount ?? 0,
+    recentMixes: recentRows.map((m) => ({
+      slug: m.slug,
+      createdAt: m.createdAt,
+      songCount: m.songIds.length,
+      durationMs: m.durationMs,
+      viewCount: m.viewCount,
+      playCount: m.playCount,
+    })),
+    topSongs: topSongRows.map((r) => ({
+      title: r.title,
+      mixCount: Number(r.mix_count),
+    })),
+  };
 }

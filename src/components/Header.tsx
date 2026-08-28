@@ -29,6 +29,14 @@ export function Header({ logoUrl }: { logoUrl?: string | null }) {
             Listen
           </EntryChoiceLink>
 
+          <EntryChoiceLink
+            href="/dj"
+            choice="dj"
+            className="rounded-full bg-[#F760D6] px-2.5 py-1 text-xs font-semibold text-white hover:opacity-90 sm:text-sm"
+          >
+            DJ Booth
+          </EntryChoiceLink>
+
           <Link
             href="/press"
             className="text-xs font-medium text-black/60 hover:text-black sm:text-sm dark:text-white/60 dark:hover:text-white"

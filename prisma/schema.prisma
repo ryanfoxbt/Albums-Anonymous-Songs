@@ -117,6 +117,29 @@ model PressedRecord {
   updatedAt DateTime @updatedAt
 }
 
+// A recorded DJ performance. Not audio — `events` is the ordered list of
+// control changes (see src/components/dj/mixTypes.ts) that the /mix/[slug]
+// page replays live against the songs in `songIds`.
+model DjMix {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  songIds    String[]
+  events     Json
+  durationMs Int
+  editToken  String
+  /** Anonymous analytics id (aa_vid cookie) of whoever recorded it, if any. */
+  visitorId  String?
+  /** Times the /mix/[slug] page was opened. */
+  viewCount  Int      @default(0)
+  /** Times a viewer actually pressed play on the replay. */
+  playCount  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([visitorId])
+}
+
 // --- Analytics ---
 // Identity is a long-lived `aa_vid` cookie (Visitor.id) plus a 30-min
 // sliding `aa_sid` cookie (VisitSession.id), both minted in src/proxy.ts.

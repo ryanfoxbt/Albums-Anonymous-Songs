@@ -97,6 +97,13 @@ export default async function SongPage({
 
         <SongPagePlayer song={song} />
 
+        <Link
+          href={`/dj?load=${song.id}`}
+          className="self-start rounded-full border border-[#F760D6]/40 bg-[#F760D6]/10 px-3 py-1.5 text-xs font-medium text-[#F760D6] hover:bg-[#F760D6]/20"
+        >
+          🎧 Load this in the DJ Booth
+        </Link>
+
         <PodcastEpisodeBadge
           songId={song.id}
           podcastEpisodeTitle={song.podcastEpisodeTitle}

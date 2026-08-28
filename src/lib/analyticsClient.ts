@@ -70,7 +70,7 @@ export function trackPodcastClick(songId: string, url: string, path: string) {
  * platforms, or "listen" for the site's own song player (the small homepage
  * link or the "Listen" nav item).
  */
-export type EntryChoice = "spotify" | "youtube" | "apple" | "listen";
+export type EntryChoice = "spotify" | "youtube" | "apple" | "listen" | "dj";
 
 export function trackEntryChoice(choice: EntryChoice) {
   beacon("/api/track/entry-choice", { choice });
@@ -78,4 +78,9 @@ export function trackEntryChoice(choice: EntryChoice) {
 
 export function trackAnnouncementClick(url: string, text: string, path: string) {
   beacon("/api/track/announcement-click", { url, text, path });
+}
+
+/** Fired once when a viewer presses play on a shared DJ mix (/mix/[slug]). */
+export function trackMixPlay(slug: string) {
+  beacon("/api/track/mix-play", { slug });
 }

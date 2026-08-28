@@ -29,6 +29,7 @@ export function FxToggle({
   mix,
   onMixChange,
   max = 0.6,
+  disabled = false,
 }: {
   label: string;
   on: boolean;
@@ -36,13 +37,15 @@ export function FxToggle({
   mix: number;
   onMixChange: (value: number) => void;
   max?: number;
+  disabled?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={onToggle}
-        className={`w-16 shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium ${
+        disabled={disabled}
+        className={`w-16 shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium disabled:opacity-40 ${
           on
             ? "border-foreground bg-foreground text-background"
             : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
@@ -56,7 +59,7 @@ export function FxToggle({
         max={max}
         step={0.01}
         value={mix}
-        disabled={!on}
+        disabled={disabled || !on}
         onChange={(e) => onMixChange(Number(e.target.value))}
         className="flex-1 accent-foreground disabled:opacity-30"
       />

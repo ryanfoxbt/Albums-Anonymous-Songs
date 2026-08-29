@@ -68,6 +68,7 @@ export async function createSong(formData: FormData) {
       )}`,
     );
   }
+  const coverImageUrl = optionalString(formData.get("coverImageUrl"));
   const rawFeaturedArtistId = optionalString(formData.get("featuredArtistId"));
   const featuredArtistId =
     rawFeaturedArtistId === artistId ? null : rawFeaturedArtistId;
@@ -80,6 +81,7 @@ export async function createSong(formData: FormData) {
         slug,
         audioUrl,
         downloadUrl: audioUrl,
+        coverImageUrl,
         durationSeconds: optionalInt(formData.get("durationSeconds")),
         podcastEpisodeTitle: optionalString(
           formData.get("podcastEpisodeTitle"),
@@ -106,6 +108,7 @@ export async function createSong(formData: FormData) {
 
   if (createError) {
     await deleteBlobIfPossible(audioUrl);
+    await deleteBlobIfPossible(coverImageUrl);
     redirect(`/admin/songs/new?error=${encodeURIComponent(createError)}`);
   }
 
@@ -142,6 +145,9 @@ export async function updateSong(songId: string, formData: FormData) {
   const newAudioUrl = optionalString(formData.get("audioUrl"));
   const audioUrl = newAudioUrl ?? existing.audioUrl;
 
+  const newCoverImageUrl = optionalString(formData.get("coverImageUrl"));
+  const coverImageUrl = newCoverImageUrl ?? existing.coverImageUrl;
+
   const rawFeaturedArtistId = optionalString(formData.get("featuredArtistId"));
   const featuredArtistId =
     rawFeaturedArtistId === artistId ? null : rawFeaturedArtistId;
@@ -155,6 +161,7 @@ export async function updateSong(songId: string, formData: FormData) {
         slug,
         audioUrl,
         downloadUrl: audioUrl,
+        coverImageUrl,
         durationSeconds: optionalInt(formData.get("durationSeconds")),
         podcastEpisodeTitle: optionalString(
           formData.get("podcastEpisodeTitle"),
@@ -181,6 +188,7 @@ export async function updateSong(songId: string, formData: FormData) {
 
   if (updateError) {
     if (newAudioUrl) await deleteBlobIfPossible(newAudioUrl);
+    if (newCoverImageUrl) await deleteBlobIfPossible(newCoverImageUrl);
     redirect(
       `/admin/songs/${songId}?error=${encodeURIComponent(updateError)}`,
     );
@@ -188,6 +196,9 @@ export async function updateSong(songId: string, formData: FormData) {
 
   if (newAudioUrl && existing.audioUrl !== newAudioUrl) {
     await deleteBlobIfPossible(existing.audioUrl);
+  }
+  if (newCoverImageUrl && existing.coverImageUrl !== newCoverImageUrl) {
+    await deleteBlobIfPossible(existing.coverImageUrl);
   }
 
   revalidatePath("/admin/songs");

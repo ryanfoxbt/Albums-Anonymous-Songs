@@ -28,6 +28,7 @@ export function SongForm({
     title: string;
     slug: string;
     audioUrl: string;
+    coverImageUrl?: string | null;
     durationSeconds: number | null;
     podcastEpisodeTitle: string | null;
     podcastEpisodeUrl: string | null;
@@ -47,6 +48,11 @@ export function SongForm({
   const [audioUploading, setAudioUploading] = useState(false);
   const [audioUploadProgress, setAudioUploadProgress] = useState(0);
   const [audioUploadError, setAudioUploadError] = useState("");
+
+  const [coverUploadUrl, setCoverUploadUrl] = useState<string | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [coverUploadProgress, setCoverUploadProgress] = useState(0);
+  const [coverUploadError, setCoverUploadError] = useState("");
 
   const handleAudioFileChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,6 +76,33 @@ export function SongForm({
         event.target.value = "";
       } finally {
         setAudioUploading(false);
+      }
+    },
+    [],
+  );
+
+  const handleCoverFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      setCoverUploadUrl(null);
+      setCoverUploadError("");
+      setCoverUploadProgress(0);
+      setCoverUploading(true);
+      try {
+        const blob = await upload(file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/admin/cover-upload",
+          onUploadProgress: ({ percentage }) =>
+            setCoverUploadProgress(percentage),
+        });
+        setCoverUploadUrl(blob.url);
+      } catch {
+        setCoverUploadError("Upload failed. Please try again.");
+        event.target.value = "";
+      } finally {
+        setCoverUploading(false);
       }
     },
     [],
@@ -106,7 +139,8 @@ export function SongForm({
 
   const pickersPending = pendingPickers.size > 0;
   const audioRequired = !song && !audioUploadUrl;
-  const submitDisabled = pickersPending || audioUploading || audioRequired;
+  const submitDisabled =
+    pickersPending || audioUploading || coverUploading || audioRequired;
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -223,6 +257,43 @@ export function SongForm({
       </div>
 
       <div className="flex flex-col gap-1">
+        <label className={labelClass} htmlFor="coverFile">
+          Cover image (optional{song ? " — leave blank to keep current" : ""})
+        </label>
+        {song?.coverImageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={song.coverImageUrl}
+            alt=""
+            className="h-20 w-20 rounded-lg border border-black/10 object-cover dark:border-white/10"
+          />
+        )}
+        <input
+          id="coverFile"
+          type="file"
+          accept="image/*"
+          onChange={handleCoverFileChange}
+          className={fieldClass}
+        />
+        <input type="hidden" name="coverImageUrl" value={coverUploadUrl ?? ""} />
+        {coverUploading && (
+          <p className="text-xs text-black/50 dark:text-white/50">
+            Uploading... {coverUploadProgress.toFixed(0)}%
+          </p>
+        )}
+        {coverUploadUrl && !coverUploading && (
+          <p className="text-xs text-green-600 dark:text-green-400">
+            Upload complete.
+          </p>
+        )}
+        {coverUploadError && (
+          <p className="text-xs text-red-600 dark:text-red-400">
+            {coverUploadError}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1">
         <label className={labelClass} htmlFor="durationSeconds">
           Duration (seconds, optional)
         </label>
@@ -298,7 +369,9 @@ export function SongForm({
           ? "Finishing add..."
           : audioUploading
             ? "Uploading audio..."
-            : submitLabel}
+            : coverUploading
+              ? "Uploading cover..."
+              : submitLabel}
       </button>
     </form>
   );

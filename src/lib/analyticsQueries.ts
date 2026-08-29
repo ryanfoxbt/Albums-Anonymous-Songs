@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { enumeratePacificDays, pacificDayKey, type DateRange } from "@/lib/dateRange";
+import { pickMerchVariant, type MerchVariant } from "@/lib/merchVariant";
 
 function sessionDurationMs(session: {
   startedAt: Date;
@@ -794,6 +795,137 @@ export async function getUtmLinks(): Promise<UtmLinkWithStats[]> {
       return { ...link, attributedSessions };
     }),
   );
+}
+
+// --- Paths (entry point -> what they did next) ---
+
+const SEO_PAGES = new Set(["/free-comedy-music", "/ai-songs", "/podcast"]);
+const DJ_PAGES = new Set(["/dj", "/dj/learn"]);
+
+function bucketLandingPath(path: string | null): string {
+  if (!path) return "Other / unknown";
+  if (path === "/") return "Home";
+  if (path === "/listen") return "Listen page";
+  if (DJ_PAGES.has(path)) return "DJ Booth";
+  if (path === "/free-comedy-music") return "Free Comedy Music (SEO)";
+  if (path === "/ai-songs") return "AI Songs (SEO)";
+  if (path === "/podcast") return "Podcast page (SEO)";
+  if (path.startsWith("/song/")) return "Direct song link";
+  if (path.startsWith("/mix/")) return "Shared DJ mix";
+  if (path.startsWith("/record/")) return "Shared playlist";
+  return "Other";
+}
+
+export type PathBreakdown = {
+  entryPoint: string;
+  sessions: number;
+  playedSong: number;
+  clickedPodcastLink: number;
+  visitedDjBooth: number;
+  visitedSeoPage: number;
+  clickedMerchLink: number;
+  subscribed: number;
+};
+
+/**
+ * Where sessions enter the site, and what they did afterward — analogous
+ * to a "Paths" report: entry point, then the actions taken during that
+ * session (or, for "subscribed", ever — subscription is tied to the
+ * visitor, not a single session).
+ */
+export async function getPathsBreakdown(range: DateRange): Promise<PathBreakdown[]> {
+  const sessions = await prisma.visitSession.findMany({
+    where: { startedAt: { gte: range.from, lte: range.to } },
+    select: {
+      landingPath: true,
+      songPlays: { select: { id: true }, take: 1 },
+      podcastLinkClicks: { select: { id: true }, take: 1 },
+      merchLinkClicks: { select: { id: true }, take: 1 },
+      pageViews: { select: { path: true } },
+      visitor: { select: { subscriber: { select: { id: true } } } },
+    },
+  });
+
+  const buckets = new Map<string, PathBreakdown>();
+  for (const session of sessions) {
+    const entryPoint = bucketLandingPath(session.landingPath);
+    const entry = buckets.get(entryPoint) ?? {
+      entryPoint,
+      sessions: 0,
+      playedSong: 0,
+      clickedPodcastLink: 0,
+      visitedDjBooth: 0,
+      visitedSeoPage: 0,
+      clickedMerchLink: 0,
+      subscribed: 0,
+    };
+    entry.sessions += 1;
+    if (session.songPlays.length > 0) entry.playedSong += 1;
+    if (session.podcastLinkClicks.length > 0) entry.clickedPodcastLink += 1;
+    if (session.merchLinkClicks.length > 0) entry.clickedMerchLink += 1;
+    if (session.pageViews.some((pv) => DJ_PAGES.has(pv.path))) {
+      entry.visitedDjBooth += 1;
+    }
+    if (session.pageViews.some((pv) => SEO_PAGES.has(pv.path))) {
+      entry.visitedSeoPage += 1;
+    }
+    if (session.visitor.subscriber) entry.subscribed += 1;
+    buckets.set(entryPoint, entry);
+  }
+
+  return [...buckets.values()].sort((a, b) => b.sessions - a.sessions);
+}
+
+// --- Merch link A/B test ---
+
+export type MerchAbResult = {
+  variant: MerchVariant;
+  text: string;
+  visitors: number;
+  clicks: number;
+  clickRate: number;
+};
+
+/**
+ * All-time results for the merch link A/B test. "visitors" buckets every
+ * visitor ever seen by the same deterministic hash the header uses to pick
+ * their variant (see src/lib/merchVariant.ts) — no assignment is stored per
+ * visitor, so this recomputes the bucket rather than reading it back.
+ */
+export async function getMerchAbResults(config: {
+  variantAText: string;
+  variantBText: string;
+}): Promise<MerchAbResult[]> {
+  const [visitors, clickRows] = await Promise.all([
+    prisma.visitor.findMany({ select: { id: true } }),
+    prisma.merchLinkClick.groupBy({
+      by: ["variant"],
+      _count: { id: true },
+    }),
+  ]);
+
+  const visitorCounts: Record<MerchVariant, number> = { a: 0, b: 0 };
+  for (const visitor of visitors) {
+    visitorCounts[pickMerchVariant(visitor.id)] += 1;
+  }
+
+  const clickCounts: Record<MerchVariant, number> = { a: 0, b: 0 };
+  for (const row of clickRows) {
+    if (row.variant === "a" || row.variant === "b") {
+      clickCounts[row.variant] = row._count.id;
+    }
+  }
+
+  return (["a", "b"] as const).map((variant) => ({
+    variant,
+    text: variant === "a" ? config.variantAText : config.variantBText,
+    visitors: visitorCounts[variant],
+    clicks: clickCounts[variant],
+    clickRate:
+      visitorCounts[variant] > 0
+        ? clickCounts[variant] / visitorCounts[variant]
+        : 0,
+  }));
 }
 
 // --- DJ Booth ---

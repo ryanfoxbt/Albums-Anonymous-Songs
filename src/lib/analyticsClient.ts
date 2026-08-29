@@ -84,3 +84,8 @@ export function trackAnnouncementClick(url: string, text: string, path: string) 
 export function trackMixPlay(slug: string) {
   beacon("/api/track/mix-play", { slug });
 }
+
+/** Fired on a click of the header's merch link, tagged with the A/B variant shown. */
+export function trackMerchClick(variant: string, text: string, path: string) {
+  beacon("/api/track/merch-click", { variant, text, path });
+}

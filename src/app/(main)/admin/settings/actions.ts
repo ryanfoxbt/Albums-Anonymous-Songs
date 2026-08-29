@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { del } from "@vercel/blob";
 import { requireAdmin } from "@/lib/adminAuth";
-import { getSiteLogoUrl, setAnnouncement, setSiteLogoUrl } from "@/lib/siteSettings";
+import {
+  getSiteLogoUrl,
+  setAnnouncement,
+  setMerchAbTest,
+  setSiteLogoUrl,
+} from "@/lib/siteSettings";
 
 async function deleteBlobIfPossible(url: string | null) {
   if (!url || !url.includes("blob.vercel-storage.com")) return;
@@ -88,6 +93,28 @@ export async function updateAnnouncement(formData: FormData) {
     linkStyle,
     hideOnHome,
   });
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/", "layout");
+  redirect("/admin/settings");
+}
+
+export async function updateMerchAbTest(formData: FormData) {
+  await requireAdmin();
+
+  const enabled = formData.get("enabled") === "on";
+  const variantAText = String(formData.get("variantAText") ?? "").trim();
+  const variantBText = String(formData.get("variantBText") ?? "").trim();
+
+  if (!variantAText || !variantBText) {
+    redirect(
+      `/admin/settings?error=${encodeURIComponent(
+        "Both merch link variants need text.",
+      )}`,
+    );
+  }
+
+  await setMerchAbTest({ enabled, variantAText, variantBText });
 
   revalidatePath("/admin/settings");
   revalidatePath("/", "layout");

@@ -51,6 +51,45 @@ export async function getAnnouncement(): Promise<Announcement> {
   };
 }
 
+export type MerchAbTest = {
+  enabled: boolean;
+  variantAText: string;
+  variantBText: string;
+};
+
+export async function getMerchAbTest(): Promise<MerchAbTest> {
+  const setting = await prisma.siteSetting.findUnique({
+    where: { id: SITE_SETTING_ID },
+    select: {
+      merchAbTestEnabled: true,
+      merchVariantAText: true,
+      merchVariantBText: true,
+    },
+  });
+  return {
+    enabled: setting?.merchAbTestEnabled ?? true,
+    variantAText: setting?.merchVariantAText ?? "Your wife will hate it",
+    variantBText: setting?.merchVariantBText ?? "Mom would be so disappointed",
+  };
+}
+
+export async function setMerchAbTest(test: MerchAbTest): Promise<void> {
+  await prisma.siteSetting.upsert({
+    where: { id: SITE_SETTING_ID },
+    create: {
+      id: SITE_SETTING_ID,
+      merchAbTestEnabled: test.enabled,
+      merchVariantAText: test.variantAText,
+      merchVariantBText: test.variantBText,
+    },
+    update: {
+      merchAbTestEnabled: test.enabled,
+      merchVariantAText: test.variantAText,
+      merchVariantBText: test.variantBText,
+    },
+  });
+}
+
 export async function setAnnouncement(announcement: Announcement): Promise<void> {
   await prisma.siteSetting.upsert({
     where: { id: SITE_SETTING_ID },

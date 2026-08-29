@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Caveat } from "next/font/google";
 import { EntryChoiceLink } from "@/components/landing/EntryChoiceLink";
+import { MerchLink } from "@/components/MerchLink";
 
 const caveat = Caveat({ subsets: ["latin"], weight: "600" });
 
@@ -54,15 +55,10 @@ export function Header({ logoUrl }: { logoUrl?: string | null }) {
             About
           </Link>
 
-          <a
+          <MerchLink
             href="https://merch.albumsanonymous.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Merch"
             className={`${caveat.className} inline-block -rotate-3 text-sm text-black/50 hover:text-black sm:text-base dark:text-white/50 dark:hover:text-white`}
-          >
-            Your wife will hate it
-          </a>
+          />
         </div>
       </div>
     </header>

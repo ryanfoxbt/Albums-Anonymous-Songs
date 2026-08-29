@@ -1,10 +1,21 @@
 import Image from "next/image";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { LogoUploadForm } from "@/components/admin/LogoUploadForm";
-import { getAnnouncement, getSiteLogoUrl } from "@/lib/siteSettings";
-import { removeSiteLogo, updateAnnouncement, updateSiteLogo } from "./actions";
+import { getMerchAbResults } from "@/lib/analyticsQueries";
+import { formatPercent } from "@/lib/formatAnalytics";
+import { getAnnouncement, getMerchAbTest, getSiteLogoUrl } from "@/lib/siteSettings";
+import {
+  removeSiteLogo,
+  updateAnnouncement,
+  updateMerchAbTest,
+  updateSiteLogo,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const fieldClass =
+  "w-full rounded-lg border border-black/15 px-3 py-2 text-sm dark:border-white/20 dark:bg-transparent";
+const labelClass = "text-xs font-medium text-black/60 dark:text-white/60";
 
 export default async function AdminSettingsPage({
   searchParams,
@@ -14,6 +25,11 @@ export default async function AdminSettingsPage({
   const { error } = await searchParams;
   const logoUrl = await getSiteLogoUrl();
   const announcement = await getAnnouncement();
+  const merchAbTest = await getMerchAbTest();
+  const merchAbResults = await getMerchAbResults({
+    variantAText: merchAbTest.variantAText,
+    variantBText: merchAbTest.variantBText,
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -147,6 +163,88 @@ export default async function AdminSettingsPage({
             />
             Show banner
           </label>
+          <button
+            type="submit"
+            className="self-start rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+          >
+            Save
+          </button>
+        </form>
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
+        <div>
+          <h2 className="text-sm font-semibold">Merch link A/B test</h2>
+          <p className="text-xs text-black/50 dark:text-white/50">
+            The header&apos;s small handwritten link next to &quot;About&quot;
+            (currently &quot;{merchAbTest.variantAText}&quot;). Visitors are
+            deterministically split 50/50 between the two variants below —
+            the same visitor always sees the same one.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {merchAbResults.map((result) => (
+            <div
+              key={result.variant}
+              className="rounded-xl border border-black/10 p-3 dark:border-white/10"
+            >
+              <p className="text-xs font-medium text-black/50 dark:text-white/50">
+                Variant {result.variant.toUpperCase()}
+              </p>
+              <p className="mt-0.5 text-sm font-medium">
+                &quot;{result.text}&quot;
+              </p>
+              <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+                {result.clicks} click{result.clicks === 1 ? "" : "s"} /{" "}
+                {result.visitors} visitor{result.visitors === 1 ? "" : "s"} ·{" "}
+                {formatPercent(result.clickRate)} click rate
+              </p>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-black/40 dark:text-white/40">
+          All-time, not scoped to a date range.
+        </p>
+
+        <form action={updateMerchAbTest} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <label className={labelClass} htmlFor="variantAText">
+              Variant A text
+            </label>
+            <input
+              id="variantAText"
+              name="variantAText"
+              type="text"
+              required
+              defaultValue={merchAbTest.variantAText}
+              className={fieldClass}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className={labelClass} htmlFor="variantBText">
+              Variant B text
+            </label>
+            <input
+              id="variantBText"
+              name="variantBText"
+              type="text"
+              required
+              defaultValue={merchAbTest.variantBText}
+              className={fieldClass}
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="enabled"
+              defaultChecked={merchAbTest.enabled}
+              className="h-4 w-4 rounded border-black/30 dark:border-white/30"
+            />
+            Run the test (unchecked always shows Variant A)
+          </label>
+
           <button
             type="submit"
             className="self-start rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"

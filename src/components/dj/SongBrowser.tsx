@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EmailGateDialog } from "@/components/EmailGateDialog";
+import { isEmailUnlocked } from "@/lib/emailGate";
 import { DJ_DRAG_MIME, type DjSong } from "./types";
 
 type ListedFilter = "all" | "listed" | "unlisted";
@@ -16,6 +18,15 @@ export function SongBrowser({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ListedFilter>("all");
   const [sort, setSort] = useState<SortOrder>("title");
+  const [unlistedGateOpen, setUnlistedGateOpen] = useState(false);
+
+  const selectFilter = (f: ListedFilter) => {
+    if (f === "unlisted" && !isEmailUnlocked()) {
+      setUnlistedGateOpen(true);
+      return;
+    }
+    setFilter(f);
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -38,7 +49,8 @@ export function SongBrowser({
   }, [songs, query, filter, sort]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2.5 rounded-2xl border border-black/10 p-3 dark:border-white/10">
+    <>
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 rounded-2xl border border-black/10 p-3 dark:border-white/10">
       <p className="text-xs font-bold uppercase tracking-wide text-black/40 dark:text-white/40">
         Tracks
       </p>
@@ -55,7 +67,7 @@ export function SongBrowser({
           <button
             key={f}
             type="button"
-            onClick={() => setFilter(f)}
+            onClick={() => selectFilter(f)}
             className={`rounded-full border px-2.5 py-1 font-medium capitalize ${
               filter === f
                 ? "border-foreground bg-foreground text-background"
@@ -138,6 +150,17 @@ export function SongBrowser({
           </p>
         )}
       </ul>
-    </div>
+      </div>
+
+      <EmailGateDialog
+        open={unlistedGateOpen}
+        reason="unlisted"
+        onClose={() => setUnlistedGateOpen(false)}
+        onUnlocked={() => {
+          setUnlistedGateOpen(false);
+          setFilter("unlisted");
+        }}
+      />
+    </>
   );
 }

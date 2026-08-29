@@ -52,6 +52,14 @@ model SiteSetting {
   announcementLinkText  String?
   announcementLinkStyle String   @default("link") // "link" | "button"
   announcementHideOnHome Boolean @default(false)
+
+  // A/B test for the header's merch link text. Visitors are deterministically
+  // bucketed into "a" or "b" from their aa_vid cookie (see
+  // src/lib/merchVariant.ts) — no assignment is stored per-visitor.
+  merchAbTestEnabled Boolean @default(true)
+  merchVariantAText  String  @default("Your wife will hate it")
+  merchVariantBText  String  @default("Mom would be so disappointed")
+
   updatedAt             DateTime @updatedAt
 }
 
@@ -166,6 +174,7 @@ model Visitor {
   songPlays              SongPlayEvent[]
   podcastLinkClicks      PodcastLinkClick[]
   announcementLinkClicks AnnouncementLinkClick[]
+  merchLinkClicks        MerchLinkClick[]
   subscriber             Subscriber?
 
   @@index([createdAt])
@@ -200,6 +209,7 @@ model VisitSession {
   songPlays              SongPlayEvent[]
   podcastLinkClicks      PodcastLinkClick[]
   announcementLinkClicks AnnouncementLinkClick[]
+  merchLinkClicks        MerchLinkClick[]
 
   @@index([visitorId])
   @@index([startedAt])
@@ -271,6 +281,24 @@ model AnnouncementLinkClick {
   clickedAt DateTime     @default(now())
 
   @@index([visitorId])
+  @@index([clickedAt])
+}
+
+// A click on the header's merch link, tagged with which A/B variant text
+// the visitor saw (see src/lib/merchVariant.ts).
+model MerchLinkClick {
+  id        String       @id @default(cuid())
+  visitor   Visitor      @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  visitorId String
+  session   VisitSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId String
+  path      String
+  variant   String
+  text      String
+  clickedAt DateTime     @default(now())
+
+  @@index([visitorId])
+  @@index([variant])
   @@index([clickedAt])
 }
 

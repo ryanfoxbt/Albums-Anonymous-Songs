@@ -6,7 +6,7 @@ import { markEmailUnlocked } from "@/lib/emailGate";
 type Status = "idle" | "loading" | "error";
 
 const COPY: Record<
-  "download" | "mix",
+  "download" | "mix" | "unlisted",
   { title: string; blurb: string; cta: string }
 > = {
   download: {
@@ -21,6 +21,12 @@ const COPY: Record<
       "We'll give you a link your friends can open to hear (and watch) your mix. One email, and you're set.",
     cta: "Get my share link",
   },
+  unlisted: {
+    title: "Drop your email to see unlisted tracks",
+    blurb:
+      "Unlisted songs are ones we haven't put on the main list yet — cuts, early drafts, one-offs. One email unlocks those here plus unlimited downloads and a heads-up the moment we drop something new.",
+    cta: "Unlock unlisted tracks",
+  },
 };
 
 export function EmailGateDialog({
@@ -30,7 +36,7 @@ export function EmailGateDialog({
   onUnlocked,
 }: {
   open: boolean;
-  reason: "download" | "mix";
+  reason: "download" | "mix" | "unlisted";
   onClose: () => void;
   onUnlocked: () => void;
 }) {

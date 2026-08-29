@@ -229,6 +229,13 @@ export default async function FreeComedyMusicPage() {
             </Link>{" "}
             — it&apos;s on Spotify, Apple Podcasts and YouTube.
           </p>
+          <p className="text-sm text-black/80 dark:text-white/80">
+            We don&apos;t use AI in our songs. Right? See{" "}
+            <Link href="/ai-songs" className="underline">
+              how you&apos;d tell a funny AI song from a human one
+            </Link>{" "}
+            — purely hypothetically.
+          </p>
         </section>
 
         <section className="flex flex-col gap-4">

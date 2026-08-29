@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { Caveat } from "next/font/google";
 import { EntryChoiceLink } from "@/components/landing/EntryChoiceLink";
+
+const caveat = Caveat({ subsets: ["latin"], weight: "600" });
 
 export function Header({ logoUrl }: { logoUrl?: string | null }) {
   return (
@@ -55,9 +58,10 @@ export function Header({ logoUrl }: { logoUrl?: string | null }) {
             href="https://merch.albumsanonymous.com/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs font-medium text-black/60 hover:text-black sm:text-sm dark:text-white/60 dark:hover:text-white"
+            title="Merch"
+            className={`${caveat.className} inline-block -rotate-3 text-sm text-black/50 hover:text-black sm:text-base dark:text-white/50 dark:hover:text-white`}
           >
-            Merch
+            Your wife will hate it
           </a>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { ArtistTradingCard } from "@/components/artist/ArtistTradingCard";
+import { ImageFramer } from "@/components/admin/ImageFramer";
 import type { ArtistCard, ArtistCardPatch } from "@/lib/artistCards";
 import { saveArtistCard, resetArtistCardAction } from "@/app/(main)/admin/cards/actions";
 
@@ -90,6 +91,9 @@ export function CardEditor({
   const [imageUrl, setImageUrl] = useState<string | null>(
     card.image === defaultCard.image ? null : card.image,
   );
+  const [focusX, setFocusX] = useState(card.imageFocusX ?? 50);
+  const [focusY, setFocusY] = useState(card.imageFocusY ?? 50);
+  const [zoom, setZoom] = useState(card.imageZoom ?? 1);
 
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState(0);
@@ -117,6 +121,9 @@ export function CardEditor({
       rarity,
       accent,
       accentInk,
+      imageFocusX: focusX,
+      imageFocusY: focusY,
+      imageZoom: zoom,
     }),
     [
       name,
@@ -134,6 +141,9 @@ export function CardEditor({
       rarity,
       accent,
       accentInk,
+      focusX,
+      focusY,
+      zoom,
     ],
   );
 
@@ -220,6 +230,9 @@ export function CardEditor({
         setAccent(defaultCard.accent);
         setAccentInk(defaultCard.accentInk);
         setImageUrl(null);
+        setFocusX(defaultCard.imageFocusX ?? 50);
+        setFocusY(defaultCard.imageFocusY ?? 50);
+        setZoom(defaultCard.imageZoom ?? 1);
         setStatus("idle");
         router.refresh();
       } catch (error) {
@@ -262,6 +275,16 @@ export function CardEditor({
             </button>
           )}
         </div>
+
+        <ImageFramer
+          src={imageUrl || defaultCard.image}
+          value={{ focusX, focusY, zoom }}
+          onChange={({ focusX: x, focusY: y, zoom: z }) => {
+            setFocusX(x);
+            setFocusY(y);
+            setZoom(z);
+          }}
+        />
       </div>
 
       <div className="flex flex-col gap-4">

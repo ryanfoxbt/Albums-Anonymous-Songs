@@ -108,26 +108,43 @@ export function ArtistTradingCard({ card }: { card: ArtistCard }) {
           </span>
 
           <div className="aacard-art">
-            {card.image.endsWith(".svg") || card.image.startsWith("http") ? (
-              // Inline SVG art and admin-uploaded blob URLs bypass the
-              // image optimiser; the baked-in /public PNGs still use it.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={card.image}
-                alt={card.imageAlt}
-                loading="lazy"
-                decoding="async"
-                className="aacard-art-img aacard-art-img--fill"
-              />
-            ) : (
-              <Image
-                src={card.image}
-                alt={card.imageAlt}
-                fill
-                sizes="(max-width: 480px) 86vw, 360px"
-                className="aacard-art-img"
-              />
-            )}
+            {(() => {
+              const fx = card.imageFocusX ?? 50;
+              const fy = card.imageFocusY ?? 50;
+              const zoom = card.imageZoom ?? 1;
+              const artStyle: React.CSSProperties = {
+                objectPosition: `${fx}% ${fy}%`,
+                ...(zoom !== 1
+                  ? {
+                      transform: `scale(${zoom})`,
+                      transformOrigin: `${fx}% ${fy}%`,
+                    }
+                  : {}),
+              };
+              return card.image.endsWith(".svg") ||
+                card.image.startsWith("http") ? (
+                // Inline SVG art and admin-uploaded blob URLs bypass the
+                // image optimiser; the baked-in /public PNGs still use it.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={card.image}
+                  alt={card.imageAlt}
+                  loading="lazy"
+                  decoding="async"
+                  style={artStyle}
+                  className="aacard-art-img aacard-art-img--fill"
+                />
+              ) : (
+                <Image
+                  src={card.image}
+                  alt={card.imageAlt}
+                  fill
+                  sizes="(max-width: 480px) 86vw, 360px"
+                  style={artStyle}
+                  className="aacard-art-img"
+                />
+              );
+            })()}
             <span className="aacard-art-no">No. {card.number}</span>
             <span className="aacard-art-set">{CARD_SERIES.edition}</span>
           </div>

@@ -23,9 +23,15 @@ export type ArtistCard = {
   name: string;
   /** Small line under the name. */
   title: string;
-  /** Path under /public. */
+  /** Path under /public, or an admin-uploaded blob URL. */
   image: string;
   imageAlt: string;
+  /** Framing of `image` in the card's art window. Focus is the point kept
+   *  centred (0–100 of width/height); zoom magnifies toward it. Defaults:
+   *  50 / 50 / 1. */
+  imageFocusX?: number;
+  imageFocusY?: number;
+  imageZoom?: number;
   style: { icon: string; label: string };
   /** The joke primary stat — its own label per card. */
   stat: { label: string; value: string };

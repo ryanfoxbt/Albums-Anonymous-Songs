@@ -24,6 +24,12 @@ function rarity(value: unknown): 1 | 2 | 3 {
   return value === 1 || value === 2 || value === 3 ? value : 2;
 }
 
+function clamp(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n * 100) / 100));
+}
+
 function revalidateCard(slug: string) {
   revalidatePath(`/artist/${slug}`);
   revalidatePath("/artist/[slug]", "page");
@@ -80,6 +86,9 @@ export async function saveArtistCard(
     rarity: rarity(patch.rarity),
     accent: hex(patch.accent, base.accent),
     accentInk: hex(patch.accentInk, base.accentInk),
+    imageFocusX: clamp(patch.imageFocusX, 0, 100, 50),
+    imageFocusY: clamp(patch.imageFocusY, 0, 100, 50),
+    imageZoom: clamp(patch.imageZoom, 1, 3, 1),
   };
 
   const previous = await prisma.artistCardOverride.findUnique({

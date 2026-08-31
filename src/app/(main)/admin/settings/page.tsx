@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { LogoUploadForm } from "@/components/admin/LogoUploadForm";
+import { EngagementRubricTooltip } from "@/components/admin/EngagementRubric";
 import { getMerchAbResults } from "@/lib/analyticsQueries";
 import { ENGAGEMENT_THRESHOLD } from "@/lib/merchEngagement";
 import { formatPercent } from "@/lib/formatAnalytics";
@@ -253,13 +254,22 @@ export default async function AdminSettingsPage({
               defaultChecked={merchAbTest.linkGateEnabled}
               className="h-4 w-4 rounded border-black/30 dark:border-white/30"
             />
-            Hide the link until a visitor is engaged
+            <span className="inline-flex items-center gap-1.5">
+              Hide the link until a visitor is engaged
+              <EngagementRubricTooltip />
+            </span>
           </label>
           <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
             On by default. The link only appears once a visitor clears an
-            engagement score of {ENGAGEMENT_THRESHOLD} — earned from things
-            like returning, subscribing, recording a mix, playing 3+ songs,
-            or 5+ minutes of listening. Untick to show it to everyone.
+            engagement score of {ENGAGEMENT_THRESHOLD} (hover the ⓘ for the
+            rubric). See the{" "}
+            <a
+              href="/admin/analytics/engagement"
+              className="underline hover:text-black dark:hover:text-white"
+            >
+              Engagement report
+            </a>{" "}
+            for how visitors are scoring. Untick to show it to everyone.
           </p>
 
           <button

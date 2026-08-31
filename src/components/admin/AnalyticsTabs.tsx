@@ -3,6 +3,7 @@ import Link from "next/link";
 const TABS = [
   { href: "/admin/analytics", label: "Overview" },
   { href: "/admin/analytics/visitors", label: "Visitors" },
+  { href: "/admin/analytics/engagement", label: "Engagement" },
   { href: "/admin/analytics/songs", label: "Songs" },
   { href: "/admin/analytics/entry-choice", label: "Entry platform" },
   { href: "/admin/analytics/paths", label: "Paths" },

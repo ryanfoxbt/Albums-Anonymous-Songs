@@ -1,85 +1,155 @@
 import { prisma } from "@/lib/prisma";
+import {
+  NEUTRAL_ENGAGEMENT,
+  scoreEngagement,
+  type EngagementBreakdown,
+  type EngagementInput,
+} from "@/lib/engagementRubric";
 
 /**
- * Whether a visitor is engaged enough with the site to be shown the
- * header's merch link. The link is hidden by default (see
- * SiteSetting.merchLinkGateEnabled) and only appears once a visitor's
- * all-time activity on this browser clears {@link ENGAGEMENT_THRESHOLD}.
+ * Server-side engagement scoring. The rubric itself (rules, points, tiers,
+ * threshold) lives in the prisma-free src/lib/engagementRubric.ts so the
+ * admin tooltip can share it; this module just loads the numbers a visitor
+ * has racked up and runs them through {@link scoreEngagement}.
  *
- * Scoring is deliberately simple and additive — each signal is something
- * a casual first-time visitor almost never does, and a few together mean
- * "this person actually likes the stuff here, a merch pitch is fair game":
- *
- *   Returning visitor (2+ sessions) ............ 2
- *   Subscribed to the mailing list ............. 3
- *   Recorded a mix in the DJ Booth ............. 3
- *   Played 3+ songs ........................... 2
- *   Finished at least one song ................. 1
- *   5+ minutes of total listening ............. 2   (+1 more at 20+ min)
- *   8+ pageviews all-time .................... 1
- *   Clicked a "first heard on" podcast link ... 1
- *
- * Threshold is 5, so e.g. a subscriber who came back once (3+2), or
- * someone who played a few songs for 5+ minutes and finished one
- * (2+2+1), qualifies; a one-visit skim does not.
+ * Drives:
+ *  - whether the header's merch link is shown (src/app/api/merch-variant)
+ *  - the admin "Engagement" analytics report (src/lib/analyticsQueries.ts)
  */
-export const ENGAGEMENT_THRESHOLD = 5;
 
-export type EngagementBreakdown = {
-  score: number;
-  engaged: boolean;
-  signals: string[];
-};
+export {
+  ENGAGEMENT_RUBRIC,
+  ENGAGEMENT_THRESHOLD,
+  ENGAGEMENT_TIERS,
+  MAX_ENGAGEMENT_SCORE,
+  engagementTier,
+  scoreEngagement,
+} from "@/lib/engagementRubric";
+export type {
+  EngagementBreakdown,
+  EngagementInput,
+  EngagementRule,
+  EngagementSignal,
+  EngagementTier,
+} from "@/lib/engagementRubric";
 
-const NEUTRAL: EngagementBreakdown = { score: 0, engaged: false, signals: [] };
+function inputFromVisitor(visitor: {
+  subscriber: { id: string } | null;
+  _count: { sessions: number; podcastLinkClicks: number };
+  sessions: { _count: { pageViews: number } }[];
+  songPlays: { listenedSeconds: number | null; completed: boolean }[];
+  mixCount: number;
+}): EngagementInput {
+  return {
+    sessions: visitor._count.sessions,
+    pageViews: visitor.sessions.reduce((sum, s) => sum + s._count.pageViews, 0),
+    songPlays: visitor.songPlays.length,
+    completedPlays: visitor.songPlays.filter((p) => p.completed).length,
+    listeningSeconds: visitor.songPlays.reduce(
+      (sum, p) => sum + (p.listenedSeconds ?? 0),
+      0,
+    ),
+    mixCount: visitor.mixCount,
+    subscribed: visitor.subscriber != null,
+    podcastLinkClicks: visitor._count.podcastLinkClicks,
+  };
+}
 
+const VISITOR_SCORING_SELECT = {
+  subscriber: { select: { id: true } },
+  _count: { select: { sessions: true, podcastLinkClicks: true } },
+  sessions: { select: { _count: { select: { pageViews: true } } } },
+  songPlays: { select: { listenedSeconds: true, completed: true } },
+} as const;
+
+/** Mixes recorded per visitor, keyed by visitor id (anonymous mixes dropped). */
+async function mixCountsByVisitor(
+  visitorIds?: string[],
+): Promise<Map<string, number>> {
+  const rows = await prisma.djMix.groupBy({
+    by: ["visitorId"],
+    where: { visitorId: visitorIds ? { in: visitorIds } : { not: null } },
+    _count: { _all: true },
+  });
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    if (row.visitorId) map.set(row.visitorId, row._count._all);
+  }
+  return map;
+}
+
+/** Score one visitor (used by the merch-link gate and the visitor profile). */
 export async function getVisitorEngagement(
   visitorId: string | null | undefined,
 ): Promise<EngagementBreakdown> {
-  if (!visitorId) return NEUTRAL;
+  if (!visitorId) return NEUTRAL_ENGAGEMENT;
 
   const [visitor, mixCount] = await Promise.all([
     prisma.visitor.findUnique({
       where: { id: visitorId },
-      select: {
-        subscriber: { select: { id: true } },
-        _count: { select: { sessions: true, podcastLinkClicks: true } },
-        sessions: { select: { _count: { select: { pageViews: true } } } },
-        songPlays: { select: { listenedSeconds: true, completed: true } },
-      },
+      select: VISITOR_SCORING_SELECT,
     }),
     prisma.djMix.count({ where: { visitorId } }),
   ]);
+  if (!visitor) return NEUTRAL_ENGAGEMENT;
 
-  if (!visitor) return NEUTRAL;
+  return scoreEngagement(inputFromVisitor({ ...visitor, mixCount }));
+}
 
-  const pageViews = visitor.sessions.reduce(
-    (sum, session) => sum + session._count.pageViews,
-    0,
-  );
-  const songPlays = visitor.songPlays.length;
-  const completedPlays = visitor.songPlays.filter((play) => play.completed).length;
-  const listeningSeconds = visitor.songPlays.reduce(
-    (sum, play) => sum + (play.listenedSeconds ?? 0),
-    0,
-  );
+/** Score a specific set of visitors in a fixed number of queries (no N+1). */
+export async function scoreVisitors(
+  visitorIds: string[],
+): Promise<Map<string, EngagementBreakdown>> {
+  const result = new Map<string, EngagementBreakdown>();
+  if (visitorIds.length === 0) return result;
 
-  let score = 0;
-  const signals: string[] = [];
-  const add = (points: number, label: string) => {
-    score += points;
-    signals.push(`${label} (+${points})`);
-  };
+  const [visitors, mixCounts] = await Promise.all([
+    prisma.visitor.findMany({
+      where: { id: { in: visitorIds } },
+      select: { id: true, ...VISITOR_SCORING_SELECT },
+    }),
+    mixCountsByVisitor(visitorIds),
+  ]);
 
-  if (visitor._count.sessions >= 2) add(2, "returning visitor");
-  if (visitor.subscriber) add(3, "subscribed");
-  if (mixCount > 0) add(3, "recorded a DJ mix");
-  if (songPlays >= 3) add(2, "played 3+ songs");
-  if (completedPlays >= 1) add(1, "finished a song");
-  if (listeningSeconds >= 300) add(2, "5+ min listening");
-  if (listeningSeconds >= 1200) add(1, "20+ min listening");
-  if (pageViews >= 8) add(1, "8+ pageviews");
-  if (visitor._count.podcastLinkClicks >= 1) add(1, "clicked a podcast link");
+  for (const visitor of visitors) {
+    result.set(
+      visitor.id,
+      scoreEngagement(
+        inputFromVisitor({
+          ...visitor,
+          mixCount: mixCounts.get(visitor.id) ?? 0,
+        }),
+      ),
+    );
+  }
+  return result;
+}
 
-  return { score, engaged: score >= ENGAGEMENT_THRESHOLD, signals };
+export type ScoredVisitor = { id: string; breakdown: EngagementBreakdown };
+
+/**
+ * Score every visitor matching `where` (defaults to all). Returns one entry
+ * per visitor; callers aggregate. Kept to a handful of queries regardless of
+ * how many visitors there are.
+ */
+export async function scoreAllVisitors(
+  where: { id?: { notIn: string[] } } = {},
+): Promise<ScoredVisitor[]> {
+  const [visitors, mixCounts] = await Promise.all([
+    prisma.visitor.findMany({
+      where,
+      select: { id: true, ...VISITOR_SCORING_SELECT },
+    }),
+    mixCountsByVisitor(),
+  ]);
+
+  return visitors.map((visitor) => ({
+    id: visitor.id,
+    breakdown: scoreEngagement(
+      inputFromVisitor({
+        ...visitor,
+        mixCount: mixCounts.get(visitor.id) ?? 0,
+      }),
+    ),
+  }));
 }

@@ -8,6 +8,15 @@ import {
   excludedSubscriberFilter,
   getExcludedVisitorIds,
 } from "@/lib/analyticsExclusions";
+import {
+  ENGAGEMENT_RUBRIC,
+  ENGAGEMENT_THRESHOLD,
+  ENGAGEMENT_TIERS,
+  MAX_ENGAGEMENT_SCORE,
+  scoreAllVisitors,
+  scoreVisitors,
+  type EngagementBreakdown,
+} from "@/lib/merchEngagement";
 
 function sessionDurationMs(session: {
   startedAt: Date;
@@ -566,6 +575,7 @@ export type VisitorListItem = {
   country: string | null;
   region: string | null;
   city: string | null;
+  engagement: EngagementBreakdown;
 };
 
 export async function getVisitorList(limit = 50): Promise<VisitorListItem[]> {
@@ -589,6 +599,8 @@ export async function getVisitorList(limit = 50): Promise<VisitorListItem[]> {
     },
   });
 
+  const scores = await scoreVisitors(visitors.map((visitor) => visitor.id));
+
   return visitors.map((visitor) => ({
     id: visitor.id,
     identity: visitor.subscriber?.email ?? visitor.id,
@@ -608,6 +620,12 @@ export async function getVisitorList(limit = 50): Promise<VisitorListItem[]> {
     country: visitor.sessions[0]?.country ?? null,
     region: visitor.sessions[0]?.region ?? null,
     city: visitor.sessions[0]?.city ?? null,
+    engagement: scores.get(visitor.id) ?? {
+      score: 0,
+      engaged: false,
+      tier: ENGAGEMENT_TIERS[0],
+      signals: [],
+    },
   }));
 }
 
@@ -1077,5 +1095,179 @@ export async function getDjBoothStats(range: DateRange): Promise<DjBoothStats> {
       title: r.title,
       mixCount: Number(r.mix_count),
     })),
+  };
+}
+
+// --- Engagement scoring report ---
+
+export type EngagementReport = {
+  totalVisitors: number;
+  threshold: number;
+  maxScore: number;
+  engagedCount: number;
+  engagedRate: number;
+  averageScore: number;
+  medianScore: number;
+  /** One bucket per possible score, 0..maxScore (zero-filled). */
+  distribution: { score: number; visitors: number }[];
+  tiers: {
+    id: string;
+    label: string;
+    min: number;
+    max: number;
+    className: string;
+    visitors: number;
+    share: number;
+  }[];
+  /** How many scored visitors earned each rubric rule. */
+  signals: {
+    id: string;
+    label: string;
+    points: number;
+    hint: string;
+    visitors: number;
+    share: number;
+  }[];
+  /** Engaged rate split by whether the visitor is on the mailing list. */
+  bySubscription: {
+    subscribers: { total: number; engaged: number; rate: number };
+    nonSubscribers: { total: number; engaged: number; rate: number };
+  };
+  topVisitors: {
+    id: string;
+    identity: string;
+    isSubscribed: boolean;
+    score: number;
+    tierLabel: string;
+    tierClassName: string;
+    signals: { label: string; points: number }[];
+    lastSeenAt: Date;
+  }[];
+};
+
+export async function getEngagementReport(topN = 20): Promise<EngagementReport> {
+  const excluded = await getExcludedVisitorIds();
+  const scored = await scoreAllVisitors(
+    excluded.length ? { id: { notIn: excluded } } : {},
+  );
+
+  const total = scored.length;
+  const scores = scored.map((s) => s.breakdown.score).sort((a, b) => a - b);
+  const sum = scores.reduce((acc, n) => acc + n, 0);
+  const median = total === 0 ? 0 : scores[Math.floor((total - 1) / 2)];
+  const engagedCount = scored.filter((s) => s.breakdown.engaged).length;
+
+  const distribution = Array.from(
+    { length: MAX_ENGAGEMENT_SCORE + 1 },
+    (_, score) => ({
+      score,
+      visitors: scored.filter((s) => s.breakdown.score === score).length,
+    }),
+  );
+
+  const tiers = ENGAGEMENT_TIERS.map((tier) => {
+    const visitors = scored.filter(
+      (s) => s.breakdown.score >= tier.min && s.breakdown.score <= tier.max,
+    ).length;
+    return {
+      id: tier.id,
+      label: tier.label,
+      min: tier.min,
+      max: tier.max,
+      className: tier.className,
+      visitors,
+      share: total > 0 ? visitors / total : 0,
+    };
+  });
+
+  const signals = ENGAGEMENT_RUBRIC.map((rule) => {
+    const visitors = scored.filter((s) =>
+      s.breakdown.signals.some((sig) => sig.id === rule.id),
+    ).length;
+    return {
+      id: rule.id,
+      label: rule.label,
+      points: rule.points,
+      hint: rule.hint,
+      visitors,
+      share: total > 0 ? visitors / total : 0,
+    };
+  });
+
+  const subScoredIds = new Set<string>();
+  const subVisitors = await prisma.visitor.findMany({
+    where: {
+      ...(excluded.length ? { id: { notIn: excluded } } : {}),
+      subscriber: { isNot: null },
+    },
+    select: { id: true },
+  });
+  for (const v of subVisitors) subScoredIds.add(v.id);
+
+  const subEngaged = scored.filter(
+    (s) => subScoredIds.has(s.id) && s.breakdown.engaged,
+  ).length;
+  const nonSubTotal = total - subScoredIds.size;
+  const nonSubEngaged = engagedCount - subEngaged;
+
+  const topVisitorRows = [...scored]
+    .sort(
+      (a, b) =>
+        b.breakdown.score - a.breakdown.score ||
+        a.id.localeCompare(b.id),
+    )
+    .slice(0, topN);
+
+  const identities = await prisma.visitor.findMany({
+    where: { id: { in: topVisitorRows.map((r) => r.id) } },
+    select: {
+      id: true,
+      lastSeenAt: true,
+      subscriber: { select: { email: true } },
+    },
+  });
+  const identityById = new Map(identities.map((row) => [row.id, row]));
+
+  const topVisitors = topVisitorRows.map((row) => {
+    const meta = identityById.get(row.id);
+    return {
+      id: row.id,
+      identity: meta?.subscriber?.email ?? row.id,
+      isSubscribed: meta?.subscriber != null,
+      score: row.breakdown.score,
+      tierLabel: row.breakdown.tier.label,
+      tierClassName: row.breakdown.tier.className,
+      signals: row.breakdown.signals.map((sig) => ({
+        label: sig.label,
+        points: sig.points,
+      })),
+      lastSeenAt: meta?.lastSeenAt ?? new Date(0),
+    };
+  });
+
+  return {
+    totalVisitors: total,
+    threshold: ENGAGEMENT_THRESHOLD,
+    maxScore: MAX_ENGAGEMENT_SCORE,
+    engagedCount,
+    engagedRate: total > 0 ? engagedCount / total : 0,
+    averageScore: total > 0 ? sum / total : 0,
+    medianScore: median,
+    distribution,
+    tiers,
+    signals,
+    bySubscription: {
+      subscribers: {
+        total: subScoredIds.size,
+        engaged: subEngaged,
+        rate: subScoredIds.size > 0 ? subEngaged / subScoredIds.size : 0,
+      },
+      nonSubscribers: {
+        total: nonSubTotal,
+        engaged: nonSubEngaged,
+        rate: nonSubTotal > 0 ? nonSubEngaged / nonSubTotal : 0,
+      },
+    },
+    topVisitors,
   };
 }

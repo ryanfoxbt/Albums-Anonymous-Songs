@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AnalyticsTabs } from "@/components/admin/AnalyticsTabs";
+import { EngagementRubricTooltip } from "@/components/admin/EngagementRubric";
 import { getVisitorList } from "@/lib/analyticsQueries";
 import {
   formatDateTime,
@@ -19,14 +20,27 @@ export default async function AdminAnalyticsVisitorsPage() {
 
       <p className="text-sm text-black/60 dark:text-white/60">
         Most recently active {visitors.length} visitors. Click one to see
-        their full history.
+        their full history. The{" "}
+        <Link
+          href="/admin/analytics/engagement"
+          className="underline hover:text-[#F760D6]"
+        >
+          engagement report
+        </Link>{" "}
+        aggregates the scores below.
       </p>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] border-collapse text-sm">
+        <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-black/10 text-left text-xs text-black/50 dark:border-white/10 dark:text-white/50">
               <th className="py-2 pr-3 font-medium">Visitor</th>
+              <th className="py-2 pr-3 font-medium">
+                <span className="inline-flex items-center gap-1">
+                  Score
+                  <EngagementRubricTooltip />
+                </span>
+              </th>
               <th className="py-2 pr-3 font-medium">First seen</th>
               <th className="py-2 pr-3 font-medium">Last seen</th>
               <th className="py-2 pr-3 font-medium">Sessions</th>
@@ -55,6 +69,18 @@ export default async function AdminAnalyticsVisitorsPage() {
                       </span>
                     )}
                   </Link>
+                </td>
+                <td className="py-2 pr-3 whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="font-semibold tabular-nums">
+                      {visitor.engagement.score}
+                    </span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${visitor.engagement.tier.className}`}
+                    >
+                      {visitor.engagement.tier.label}
+                    </span>
+                  </span>
                 </td>
                 <td className="py-2 pr-3 whitespace-nowrap">
                   {formatDateTime(visitor.firstSeenAt)}

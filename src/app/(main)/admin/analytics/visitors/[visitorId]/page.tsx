@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EngagementRubricTooltip } from "@/components/admin/EngagementRubric";
 import { getVisitorProfile } from "@/lib/analyticsQueries";
+import { ENGAGEMENT_RUBRIC, MAX_ENGAGEMENT_SCORE } from "@/lib/engagementRubric";
+import { getVisitorEngagement } from "@/lib/merchEngagement";
 import {
   formatDateTime,
   formatDuration,
@@ -16,8 +19,13 @@ export default async function AdminAnalyticsVisitorPage({
   params: Promise<{ visitorId: string }>;
 }) {
   const { visitorId } = await params;
-  const visitor = await getVisitorProfile(visitorId);
+  const [visitor, engagement] = await Promise.all([
+    getVisitorProfile(visitorId),
+    getVisitorEngagement(visitorId),
+  ]);
   if (!visitor) notFound();
+
+  const earnedSignalIds = new Set(engagement.signals.map((s) => s.id));
 
   return (
     <div className="flex flex-col gap-6">
@@ -87,6 +95,50 @@ export default async function AdminAnalyticsVisitorPage({
           </p>
         </div>
       </div>
+
+      <section className="flex flex-col gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="inline-flex items-center gap-1.5 text-sm font-semibold text-black/60 dark:text-white/60">
+            Engagement score
+            <EngagementRubricTooltip />
+          </h2>
+          <span className="inline-flex items-center gap-2">
+            <span className="text-lg font-bold tabular-nums">
+              {engagement.score}
+              <span className="text-sm font-normal text-black/40 dark:text-white/40">
+                /{MAX_ENGAGEMENT_SCORE}
+              </span>
+            </span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${engagement.tier.className}`}
+            >
+              {engagement.tier.label}
+            </span>
+          </span>
+        </div>
+        <ul className="grid gap-1 sm:grid-cols-2">
+          {ENGAGEMENT_RUBRIC.map((rule) => {
+            const earned = earnedSignalIds.has(rule.id);
+            return (
+              <li
+                key={rule.id}
+                className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-sm ${
+                  earned
+                    ? "border-[#F760D6]/30 bg-[#F760D6]/5"
+                    : "border-black/10 text-black/40 dark:border-white/10 dark:text-white/40"
+                }`}
+              >
+                <span>
+                  {earned ? "✓" : "○"} {rule.label}
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  {earned ? `+${rule.points}` : `(+${rule.points})`}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">

@@ -108,7 +108,9 @@ export function ArtistTradingCard({ card }: { card: ArtistCard }) {
           </span>
 
           <div className="aacard-art">
-            {card.image.endsWith(".svg") ? (
+            {card.image.endsWith(".svg") || card.image.startsWith("http") ? (
+              // Inline SVG art and admin-uploaded blob URLs bypass the
+              // image optimiser; the baked-in /public PNGs still use it.
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={card.image}

@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArtistTradingCard } from "@/components/artist/ArtistTradingCard";
 import { SongCardList } from "@/components/SongCardList";
-import { CARD_SERIES, getAllArtistCards, getArtistCard } from "@/lib/artistCards";
+import { CARD_SERIES } from "@/lib/artistCards";
+import { getAllArtistCards, getArtistCard } from "@/lib/artistCardStore";
 import { getArtistPage, getArtistsWithSongs } from "@/lib/catalog";
 import { getArtistSeo } from "@/lib/artistSeo";
 import { absoluteUrl, SITE_URL } from "@/lib/siteUrl";
@@ -65,8 +66,10 @@ export default async function ArtistPage({
 
   const { artist, songs, genres } = data;
   const seo = getArtistSeo(slug);
-  const card = getArtistCard(slug);
-  const cardsPrinted = getAllArtistCards().length;
+  const [card, cardsPrinted] = await Promise.all([
+    getArtistCard(slug),
+    getAllArtistCards().then((cards) => cards.length),
+  ]);
 
   const musicGroupJsonLd = {
     "@context": "https://schema.org",

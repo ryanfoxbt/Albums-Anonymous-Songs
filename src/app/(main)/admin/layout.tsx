@@ -67,6 +67,12 @@ export default async function AdminLayout({
               Categories
             </Link>
             <Link
+              href="/admin/cards"
+              className="text-black/60 hover:text-black hover:underline dark:text-white/60 dark:hover:text-white"
+            >
+              Cards
+            </Link>
+            <Link
               href="/admin/social-links"
               className="text-black/60 hover:text-black hover:underline dark:text-white/60 dark:hover:text-white"
             >

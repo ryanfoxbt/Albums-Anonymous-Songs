@@ -1,11 +1,13 @@
-// Collectible trading cards for the parody artists — "Permanent Records
-// All-Stars, Series 1". Card art lives in /public/cards. Only artists with
-// finished art are here; the rest of the roster is planned (12 total).
+// Baked-in trading cards for the parody artists — "Permanent Records
+// All-Stars, Series 1" (12/12). Card art lives in /public/cards.
 //
 // This is a bit — a Pokémon-style stat block reskinned so it's its own
 // thing: custom stat names, "STYLE" instead of type, "TRACKS" instead of
-// attacks, a "HYPE" number instead of damage. Prisma-free so the card
-// component (a client component) can import it.
+// attacks, a "HYPE" number instead of damage.
+//
+// These are the DEFAULTS. Admin edits are stored per-slug in the DB and
+// merged on top by src/lib/artistCardStore.ts. This file stays prisma-free
+// so the card component (a client component) can import the types.
 
 export type CardTrack = {
   /** STYLE pips it costs to use, e.g. "🍑" or "🍑🍑". */
@@ -446,10 +448,15 @@ const CARDS: ArtistCard[] = [
 
 const BY_SLUG = new Map(CARDS.map((card) => [card.slug, card]));
 
-export function getArtistCard(slug: string): ArtistCard | undefined {
+/** The baked-in card for `slug`, before any admin override. */
+export function getDefaultCard(slug: string): ArtistCard | undefined {
   return BY_SLUG.get(slug);
 }
 
-export function getAllArtistCards(): ArtistCard[] {
+/** Every baked-in card, before any admin override. */
+export function getDefaultCards(): ArtistCard[] {
   return CARDS;
 }
+
+/** Fields an admin can edit; `slug` and `number` are fixed. */
+export type ArtistCardPatch = Partial<Omit<ArtistCard, "slug" | "number" | "image">>;

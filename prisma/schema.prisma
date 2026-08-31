@@ -329,3 +329,14 @@ model UtmLink {
   utmContent      String?
   createdAt       DateTime @default(now())
 }
+
+// Admin edits to a parody-artist trading card, keyed by artist slug. The
+// baked-in defaults live in src/lib/artistCards.ts; `data` is a partial
+// overlay of the editable fields and `imageUrl` (a blob URL) overrides the
+// static /cards art when set. See src/lib/artistCardStore.ts.
+model ArtistCardOverride {
+  slug      String   @id
+  data      Json     @default("{}")
+  imageUrl  String?
+  updatedAt DateTime @updatedAt
+}

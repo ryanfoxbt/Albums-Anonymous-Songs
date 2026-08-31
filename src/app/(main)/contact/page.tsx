@@ -1,14 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { ContactForm } from "@/components/ContactForm";
+import { ObfuscatedEmail } from "@/components/ObfuscatedEmail";
 import { absoluteUrl } from "@/lib/siteUrl";
 
 export const revalidate = 86400;
 
-const CONTACT_EMAIL = "contact@permrecords.com";
-
 const title = "Contact";
 const description =
-  "Get in touch with Albums Anonymous and Permanent Records LLC — song licensing, press, guest requests, or just to say a song ruined your commute.";
+  "Get in touch with Albums Anonymous and Permanent Records LLC — song licensing, press, guest requests, or to report something broken.";
 
 export const metadata: Metadata = {
   title,
@@ -21,15 +21,15 @@ export const metadata: Metadata = {
 const REASONS: { h: string; p: string }[] = [
   {
     h: "Using a song",
-    p: "Want to use a track in a video, stream or project? These are original recordings, not public domain — email first and we'll usually say yes. Mixing and sharing inside the on-site DJ booth is already free.",
+    p: "Want to use a track in a video, stream or project? These are original recordings, not public domain — ask first and we'll usually say yes. Mixing and sharing inside the on-site DJ booth is already free.",
   },
   {
     h: "Press & guests",
-    p: "Interview requests, festival bookings, or pitching yourself as an album-club guest — same address.",
+    p: "Interview requests, festival bookings, or pitching yourself as an album-club guest — same form.",
   },
   {
     h: "Something's broken",
-    p: "A song won't play, a download link is dead, a page looks wrong — tell us what device and browser and we'll fix it.",
+    p: "A song won't play, a download link is dead, a page looks wrong — tell us the device and browser and we'll fix it.",
   },
 ];
 
@@ -42,7 +42,6 @@ export default function ContactPage() {
     mainEntity: {
       "@type": "Organization",
       name: "Permanent Records LLC",
-      email: CONTACT_EMAIL,
       url: "https://www.permrecords.com/",
       brand: { "@type": "Brand", name: "Albums Anonymous" },
     },
@@ -67,17 +66,17 @@ export default function ContactPage() {
             >
               Permanent Records LLC
             </a>
-            . One inbox handles all of it:
-          </p>
-          <p className="text-base font-medium">
-            <a
-              href={`mailto:${CONTACT_EMAIL}`}
-              className="underline decoration-[#F760D6] decoration-2 underline-offset-2 hover:text-[#F760D6]"
-            >
-              {CONTACT_EMAIL}
-            </a>
+            . Drop a note below and it lands in one inbox.
           </p>
         </header>
+
+        <ContactForm />
+
+        <p className="text-xs text-black/45 dark:text-white/45">
+          Prefer your own mail client? Reach{" "}
+          <ObfuscatedEmail className="underline hover:text-foreground" />{" "}
+          directly.
+        </p>
 
         <section className="flex flex-col gap-4 border-t border-black/10 pt-5 dark:border-white/10">
           {REASONS.map((r) => (

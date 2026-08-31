@@ -31,7 +31,17 @@ export function OgImageContent({
           style={{ borderRadius: 32, marginBottom: 36 }}
         />
       )}
-      <div style={{ display: "flex", fontSize: 96, fontWeight: 700 }}>
+      <div
+        style={{
+          display: "flex",
+          fontSize: title && title.length > 22 ? 68 : 96,
+          fontWeight: 700,
+          maxWidth: 1040,
+          textAlign: "center",
+          lineHeight: 1.1,
+          padding: "0 40px",
+        }}
+      >
         {title ?? (
           <>
             <span style={{ display: "flex" }}>Albums&nbsp;</span>

@@ -2,12 +2,29 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { PodcastEpisodeBadge } from "@/components/player/PodcastEpisodeBadge";
+import { SongCardList } from "@/components/SongCardList";
 import { SongPagePlayer } from "@/components/SongPagePlayer";
 import { formatArtistCredit } from "@/lib/artistCredit";
-import { getSongBySlug } from "@/lib/songs";
+import { getRelatedSongs } from "@/lib/catalog";
+import { episodeForSong } from "@/lib/episodes";
+import { getSongBySlug, getSongs } from "@/lib/songs";
 import { getSongSeo } from "@/lib/songSeo";
+import { absoluteUrl, SITE_URL } from "@/lib/siteUrl";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  const songs = await getSongs({ sortBy: "title" });
+  return songs.map((song) => ({ slug: song.slug }));
+}
+
+function isoDuration(seconds: number | null): string | undefined {
+  if (!seconds || seconds <= 0) return undefined;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `PT${m}M${s}S`;
+}
 
 export async function generateMetadata({
   params,
@@ -36,8 +53,13 @@ export async function generateMetadata({
     description,
     keywords: seo?.searchTerms,
     alternates: { canonical: `/song/${slug}` },
-    openGraph: { title, description },
-    twitter: { title, description },
+    openGraph: {
+      title,
+      description,
+      type: "music.song",
+      url: absoluteUrl(`/song/${slug}`),
+    },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -52,6 +74,8 @@ export default async function SongPage({
 
   const artistCredit = formatArtistCredit(song);
   const seo = getSongSeo(slug);
+  const episode = episodeForSong(song);
+  const related = await getRelatedSongs(song, 4);
 
   const musicRecordingJsonLd = {
     "@context": "https://schema.org",
@@ -59,12 +83,38 @@ export default async function SongPage({
     name: song.title,
     byArtist: { "@type": "MusicGroup", name: artistCredit },
     genre: song.genre.name,
-    url: `https://albumsanonymous.com/song/${song.slug}`,
+    url: absoluteUrl(`/song/${song.slug}`),
+    inLanguage: "en",
+    datePublished: song.createdAt,
+    duration: isoDuration(song.durationSeconds),
+    image: song.coverImageUrl ?? undefined,
+    publisher: {
+      "@type": "Organization",
+      name: "Permanent Records LLC",
+      url: "https://www.permrecords.com/",
+    },
+    audio: {
+      "@type": "AudioObject",
+      contentUrl: song.audioUrl,
+      encodingFormat: "audio/mpeg",
+      ...(isoDuration(song.durationSeconds)
+        ? { duration: isoDuration(song.durationSeconds) }
+        : {}),
+    },
     ...(seo
       ? {
           description: seo.summary,
           abstract: seo.about,
           keywords: seo.searchTerms.join(", "),
+        }
+      : {}),
+    ...(episode
+      ? {
+          isPartOf: {
+            "@type": "PodcastEpisode",
+            name: episode.title,
+            url: absoluteUrl(`/podcast/${episode.slug}`),
+          },
         }
       : {}),
     ...(song.lyrics
@@ -76,6 +126,32 @@ export default async function SongPage({
           },
         }
       : {}),
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Songs",
+        item: absoluteUrl("/listen"),
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: `${song.genre.name} songs`,
+        item: absoluteUrl(`/genre/${song.genre.slug}`),
+      },
+      {
+        "@type": "ListItem",
+        position: 4,
+        name: song.title,
+        item: absoluteUrl(`/song/${song.slug}`),
+      },
+    ],
   };
 
   const faqJsonLd =
@@ -91,6 +167,18 @@ export default async function SongPage({
         }
       : null;
 
+  const speakableJsonLd = seo
+    ? {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        url: absoluteUrl(`/song/${song.slug}`),
+        speakable: {
+          "@type": "SpeakableSpecification",
+          cssSelector: ["#about-this-song", "#song-faq"],
+        },
+      }
+    : null;
+
   return (
     <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
       <script
@@ -99,32 +187,71 @@ export default async function SongPage({
           __html: JSON.stringify(musicRecordingJsonLd),
         }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       {faqJsonLd && (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
       )}
+      {speakableJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(speakableJsonLd) }}
+        />
+      )}
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
-        <Link
-          href="/listen"
-          className="text-xs text-black/50 underline hover:text-black dark:text-white/50 dark:hover:text-white"
-        >
-          ← All songs
-        </Link>
+        <nav className="text-xs text-black/50 dark:text-white/50">
+          <Link href="/listen" className="underline hover:text-foreground">
+            All songs
+          </Link>{" "}
+          /{" "}
+          <Link
+            href={`/genre/${song.genre.slug}`}
+            className="underline hover:text-foreground"
+          >
+            {song.genre.name}
+          </Link>{" "}
+          / <span>{song.title}</span>
+        </nav>
 
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight">{song.title}</h1>
           <p className="text-base font-medium text-[#F760D6]">
-            {artistCredit}
+            <Link
+              href={`/artist/${song.artist.slug}`}
+              className="hover:underline"
+            >
+              {song.artist.name}
+            </Link>
+            {song.featuredArtist && (
+              <>
+                {" Featuring "}
+                <Link
+                  href={`/artist/${song.featuredArtist.slug}`}
+                  className="hover:underline"
+                >
+                  {song.featuredArtist.name}
+                </Link>
+              </>
+            )}
           </p>
           <div className="flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full bg-black/5 px-2 py-1 dark:bg-white/10">
+            <Link
+              href={`/genre/${song.genre.slug}`}
+              className="rounded-full bg-black/5 px-2 py-1 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20"
+            >
               {song.genre.name}
-            </span>
-            <span className="rounded-full bg-black/5 px-2 py-1 dark:bg-white/10">
+            </Link>
+            <Link
+              href={`/category/${song.category.slug}`}
+              className="rounded-full bg-black/5 px-2 py-1 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20"
+            >
               {song.category.name}
-            </span>
+            </Link>
           </div>
         </header>
 
@@ -143,8 +270,26 @@ export default async function SongPage({
           podcastEpisodeUrl={song.podcastEpisodeUrl}
         />
 
+        {episode && (
+          <p className="text-sm text-black/60 dark:text-white/60">
+            First heard on{" "}
+            <Link
+              href={`/podcast/${episode.slug}`}
+              className="underline hover:text-foreground"
+            >
+              Episode {episode.number}: {episode.title}
+            </Link>
+            {episode.albumTitle &&
+              ` — the ${episode.albumArtist} / ${episode.albumTitle} episode`}
+            .
+          </p>
+        )}
+
         {seo && (
-          <section className="flex flex-col gap-3 border-t border-black/10 pt-4 dark:border-white/10">
+          <section
+            id="about-this-song"
+            className="flex flex-col gap-3 border-t border-black/10 pt-4 dark:border-white/10"
+          >
             <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
               About this song
             </h2>
@@ -181,7 +326,10 @@ export default async function SongPage({
         )}
 
         {seo && seo.faq.length > 0 && (
-          <section className="flex flex-col gap-3 border-t border-black/10 pt-4 dark:border-white/10">
+          <section
+            id="song-faq"
+            className="flex flex-col gap-3 border-t border-black/10 pt-4 dark:border-white/10"
+          >
             <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
               Common questions about “{song.title}”
             </h2>
@@ -197,6 +345,15 @@ export default async function SongPage({
                 </div>
               ))}
             </dl>
+          </section>
+        )}
+
+        {related.length > 0 && (
+          <section className="flex flex-col gap-3 border-t border-black/10 pt-4 dark:border-white/10">
+            <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">
+              More like this
+            </h2>
+            <SongCardList songs={related} />
           </section>
         )}
       </main>

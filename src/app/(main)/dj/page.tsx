@@ -2,18 +2,28 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { DjStudio } from "@/components/dj/DjStudio";
 import { formatArtistCredit } from "@/lib/artistCredit";
+import { absoluteUrl } from "@/lib/siteUrl";
 import { getSongs } from "@/lib/songs";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
-const title = "DJ the Funny Songs";
+const title = "DJ the Funny Songs — Free Browser DJ Booth";
 const description =
   "Two decks, EQ, filters, echo, reverb, scratch — mix Albums Anonymous parody songs right in your browser, then share your set. No login to play.";
 
 export const metadata: Metadata = {
   title,
   description,
-  openGraph: { title, description },
+  keywords: [
+    "online dj booth",
+    "browser dj mixer",
+    "free dj online",
+    "mix songs online",
+    "dj comedy songs",
+    "no download dj",
+  ],
+  alternates: { canonical: "/dj" },
+  openGraph: { title, description, url: absoluteUrl("/dj") },
   twitter: { title, description },
 };
 

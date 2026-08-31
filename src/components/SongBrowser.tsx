@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import type {
   ArtistSummary,
   CategorySummary,
@@ -22,7 +23,14 @@ export function SongBrowser({
   categories: CategorySummary[];
 }) {
   const filters = useSongFilters(songs, artists, genres, categories);
-  const { filteredSongs, activeFilters, clearAll } = filters;
+  const { filteredSongs, activeFilters, clearAll, setSearch } = filters;
+
+  // `?q=` pre-fills the search box (the sitelinks search action targets
+  // /listen?q=…). Read it after mount so the full list still server-renders.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setSearch(q);
+  }, [setSearch]);
 
   return (
     <div className="flex flex-col gap-4">

@@ -1,8 +1,11 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { SongBrowser } from "@/components/SongBrowser";
+import { getGenresWithSongs } from "@/lib/catalog";
+import { absoluteUrl } from "@/lib/siteUrl";
 import { getArtists, getCategories, getGenres, getSongs } from "@/lib/songs";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 const title = "Listen to Funny Parody Songs";
 const description =
@@ -11,16 +14,18 @@ const description =
 export const metadata: Metadata = {
   title,
   description,
-  openGraph: { title, description },
+  alternates: { canonical: "/listen" },
+  openGraph: { title, description, url: absoluteUrl("/listen") },
   twitter: { title, description },
 };
 
 export default async function ListenPage() {
-  const [songs, artists, genres, categories] = await Promise.all([
+  const [songs, artists, genres, categories, genreFacets] = await Promise.all([
     getSongs({ sortBy: "newest" }),
     getArtists(),
     getGenres(),
     getCategories(),
+    getGenresWithSongs(),
   ]);
 
   const musicPlaylistJsonLd = {
@@ -30,12 +35,13 @@ export default async function ListenPage() {
     description:
       "Funny original songs and parody tracks from Albums Anonymous.",
     numTracks: songs.length,
-    track: songs.map((song) => ({
+    track: songs.map((song, index) => ({
       "@type": "MusicRecording",
+      position: index + 1,
       name: song.title,
       byArtist: { "@type": "MusicGroup", name: song.artist.name },
       genre: song.genre.name,
-      url: `https://albumsanonymous.com/song/${song.slug}`,
+      url: absoluteUrl(`/song/${song.slug}`),
     })),
   };
 
@@ -68,6 +74,24 @@ export default async function ListenPage() {
           genres={genres}
           categories={categories}
         />
+
+        <nav className="flex flex-col gap-2 border-t border-black/10 pt-4 text-sm dark:border-white/10">
+          <h2 className="text-xs font-medium text-black/50 dark:text-white/50">
+            Browse by genre
+          </h2>
+          <ul className="flex flex-wrap gap-1.5">
+            {genreFacets.map((genre) => (
+              <li key={genre.slug}>
+                <Link
+                  href={`/genre/${genre.slug}`}
+                  className="rounded-full bg-black/5 px-2.5 py-1 text-xs hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20"
+                >
+                  Funny {genre.name.toLowerCase()} songs ({genre.songCount})
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </main>
     </div>
   );

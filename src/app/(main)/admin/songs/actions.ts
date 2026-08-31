@@ -42,6 +42,25 @@ async function deleteBlobIfPossible(url: string | null) {
   }
 }
 
+/**
+ * Bust the ISR cache for every public surface a song change can touch —
+ * the song page itself plus the listing, hub and feed pages that embed it.
+ */
+function revalidateCatalog() {
+  revalidatePath("/");
+  revalidatePath("/listen");
+  revalidatePath("/free-comedy-music");
+  revalidatePath("/ai-songs");
+  revalidatePath("/dj");
+  revalidatePath("/song/[slug]", "page");
+  revalidatePath("/artist/[slug]", "page");
+  revalidatePath("/genre/[slug]", "page");
+  revalidatePath("/category/[slug]", "page");
+  revalidatePath("/podcast/[slug]", "page");
+  revalidatePath("/sitemap.xml");
+  revalidatePath("/llms.txt");
+}
+
 export async function createSong(formData: FormData) {
   await requireAdmin();
 
@@ -113,7 +132,7 @@ export async function createSong(formData: FormData) {
   }
 
   revalidatePath("/admin/songs");
-  revalidatePath("/");
+  revalidateCatalog();
   redirect("/admin/songs");
 }
 
@@ -202,7 +221,7 @@ export async function updateSong(songId: string, formData: FormData) {
   }
 
   revalidatePath("/admin/songs");
-  revalidatePath("/");
+  revalidateCatalog();
   redirect("/admin/songs");
 }
 
@@ -221,7 +240,7 @@ export async function toggleSongHidden(formData: FormData) {
   });
 
   revalidatePath("/admin/songs");
-  revalidatePath("/");
+  revalidateCatalog();
 }
 
 export async function createDownloadLink(formData: FormData) {
@@ -270,6 +289,6 @@ export async function deleteSong(formData: FormData) {
   await deleteBlobIfPossible(existing.coverImageUrl);
 
   revalidatePath("/admin/songs");
-  revalidatePath("/");
+  revalidateCatalog();
   redirect("/admin/songs");
 }

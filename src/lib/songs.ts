@@ -23,6 +23,8 @@ export type SongWithRelations = {
   hidden: boolean;
   /** ISO string — serialisable across the RSC boundary, sorts chronologically. */
   createdAt: string;
+  /** ISO string — last edit, used for sitemap lastModified. */
+  updatedAt: string;
   podcastEpisodeTitle: string | null;
   podcastEpisodeUrl: string | null;
   firstHeardOnEpisode: number | null;
@@ -133,6 +135,9 @@ function fallbackSongs(): SongWithRelations[] {
       createdAt: new Date(
         Date.UTC(2020, 0, 1) + index * 86_400_000,
       ).toISOString(),
+      updatedAt: new Date(
+        Date.UTC(2020, 0, 1) + index * 86_400_000,
+      ).toISOString(),
       podcastEpisodeTitle: song.podcastEpisodeTitle ?? null,
       podcastEpisodeUrl: song.podcastEpisodeUrl ?? null,
       firstHeardOnEpisode: song.firstHeardOnEpisode ?? null,
@@ -179,6 +184,7 @@ export async function getSongs(
     const songs = rows.map((song) => ({
       ...song,
       createdAt: song.createdAt.toISOString(),
+      updatedAt: song.updatedAt.toISOString(),
       playCount: song._count.songPlays,
     }));
     if (sortBy === "popularity") {
@@ -217,7 +223,11 @@ export async function getSongsByIds(
   const byId = new Map(
     songs.map((song) => [
       song.id,
-      { ...song, createdAt: song.createdAt.toISOString() },
+      {
+        ...song,
+        createdAt: song.createdAt.toISOString(),
+        updatedAt: song.updatedAt.toISOString(),
+      },
     ]),
   );
   return ids.map((id) => byId.get(id)).filter((song) => song !== undefined);
@@ -241,7 +251,11 @@ export async function getSongBySlug(
       },
     });
     return song && !song.hidden
-      ? { ...song, createdAt: song.createdAt.toISOString() }
+      ? {
+          ...song,
+          createdAt: song.createdAt.toISOString(),
+          updatedAt: song.updatedAt.toISOString(),
+        }
       : null;
   } catch (error) {
     warnFallback("song by slug", error);

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { formatArtistCredit } from "@/lib/artistCredit";
 import { buildContinuousQueue } from "@/lib/continuousPlay";
 import { isNewSong } from "@/lib/newSong";
 import { toPlayerSong } from "@/lib/playerSong";
@@ -42,16 +41,37 @@ export function SongCard({
             </span>
           )}
         </h3>
-        <p className="text-sm text-[#F760D6]">{formatArtistCredit(song)}</p>
+        <p className="text-sm text-[#F760D6]">
+          <Link href={`/artist/${song.artist.slug}`} className="hover:underline">
+            {song.artist.name}
+          </Link>
+          {song.featuredArtist && (
+            <>
+              {" Featuring "}
+              <Link
+                href={`/artist/${song.featuredArtist.slug}`}
+                className="hover:underline"
+              >
+                {song.featuredArtist.name}
+              </Link>
+            </>
+          )}
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
-        <span className="rounded-full bg-black/5 px-2 py-1 dark:bg-white/10">
+        <Link
+          href={`/genre/${song.genre.slug}`}
+          className="rounded-full bg-black/5 px-2 py-1 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20"
+        >
           {song.genre.name}
-        </span>
-        <span className="rounded-full bg-black/5 px-2 py-1 dark:bg-white/10">
+        </Link>
+        <Link
+          href={`/category/${song.category.slug}`}
+          className="rounded-full bg-black/5 px-2 py-1 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20"
+        >
           {song.category.name}
-        </span>
+        </Link>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

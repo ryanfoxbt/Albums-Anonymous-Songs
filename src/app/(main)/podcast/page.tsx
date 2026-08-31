@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PodcastPlatformIcon } from "@/components/icons/PodcastPlatformIcon";
 import { EntryChoiceLink } from "@/components/landing/EntryChoiceLink";
+import { getEpisodes } from "@/lib/episodes";
 import { PODCAST_PLATFORMS } from "@/lib/podcastPlatforms";
 
 const title = "The Podcast — An Album Club With a DJ Problem";
@@ -78,6 +79,8 @@ const FAQ: { q: string; a: string }[] = [
 ];
 
 export default function PodcastPage() {
+  const episodes = getEpisodes();
+
   const podcastJsonLd = {
     "@context": "https://schema.org",
     "@type": "PodcastSeries",
@@ -202,6 +205,35 @@ export default function PodcastPage() {
             </Link>
             .
           </p>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xl font-bold tracking-tight">
+            Episodes with songs on this site
+          </h2>
+          <p className="text-sm text-black/70 dark:text-white/70">
+            Every original song here was written for an episode. These are the
+            episodes those songs came from — the rest of the catalogue is on
+            your podcast app of choice.
+          </p>
+          <ul className="flex flex-col divide-y divide-black/10 dark:divide-white/10">
+            {episodes.map((episode) => (
+              <li key={episode.slug} className="py-2.5">
+                <Link
+                  href={`/podcast/${episode.slug}`}
+                  className="text-sm font-medium hover:underline"
+                >
+                  Ep. {episode.number}: {episode.title}
+                </Link>
+                {episode.albumTitle && (
+                  <span className="block text-xs text-black/50 dark:text-white/50">
+                    {episode.albumArtist} — {episode.albumTitle}
+                    {episode.guest ? ` · with ${episode.guest}` : ""}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section className="flex flex-col gap-3">

@@ -28,6 +28,9 @@ export async function generateMetadata({
   return {
     title,
     description,
+    // Shareable, user-generated pages — keep them out of the index but
+    // let crawlers follow the links back into the catalogue.
+    robots: { index: false, follow: true },
     openGraph: { title, description },
     twitter: { title, description },
   };

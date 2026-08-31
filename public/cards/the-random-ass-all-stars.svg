@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" font-family="'Arial Black','Arial',sans-serif">
+  <defs>
+    <linearGradient id="rbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2350"/><stop offset="1" stop-color="#6d5bb5"/>
+    </linearGradient>
+    <linearGradient id="spot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff6c8" stop-opacity=".8"/><stop offset="1" stop-color="#fff6c8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#rbg)"/>
+  <path d="M600 120 L360 720 H840 Z" fill="url(#spot)"/>
+  <!-- back-row mismatched randos (silhouettes) -->
+  <g fill="#241d3f" stroke="#120f22" stroke-width="8" stroke-linejoin="round">
+    <g transform="translate(170 300)"><circle cx="60" cy="60" r="56"/><path d="M0 400q0-180 60-200t60 200z"/><path d="M20 30q40-40 80 0" fill="#3a3160"/></g>
+    <g transform="translate(360 270)"><circle cx="60" cy="60" r="56"/><path d="M-6 430q0-190 66-210t66 210z"/><rect x="30" y="36" width="60" height="20" fill="#3a3160"/></g>
+    <g transform="translate(720 270)"><circle cx="60" cy="60" r="56"/><path d="M-6 430q0-190 66-210t66 210z"/><path d="M10 40l50-24 50 24" fill="none" stroke="#3a3160" stroke-width="14"/></g>
+    <g transform="translate(910 300)"><circle cx="60" cy="60" r="56"/><path d="M0 400q0-180 60-200t60 200z"/><circle cx="40" cy="20" r="12" fill="#3a3160"/><circle cx="84" cy="20" r="12" fill="#3a3160"/></g>
+  </g>
+  <!-- monkey swinging -->
+  <g transform="translate(1000 150)" stroke="#120f22" stroke-width="8" stroke-linejoin="round">
+    <path d="M40 0q-8 60 0 90" fill="none"/>
+    <circle cx="40" cy="110" r="34" fill="#7a4a2a"/>
+    <circle cx="40" cy="112" r="20" fill="#e0b892"/>
+    <path d="M40 144q-30 10-30 60t30 30 30-30-30-60z" fill="#7a4a2a"/>
+    <path d="M14 160q-40 10-30 60M66 160q40-40 90-30" fill="none"/>
+  </g>
+  <!-- Jimothy the short-spined raccoon, front & center, holding a candle -->
+  <g transform="translate(510 380)" stroke="#120f22" stroke-width="11" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M40 120q-30 40 0 130q10 30 50 30h20q40 0 50-30q30-90 0-130z" fill="#8b8f96"/>
+    <circle cx="95" cy="80" r="62" fill="#c7cbd1"/>
+    <path d="M40 40q-14-38 6-40t20 30M150 40q14-38-6-40t-20 30" fill="#8b8f96"/>
+    <path d="M46 66q22-14 40 0M104 66q22-14 40 0" fill="#2a2a2a"/>
+    <circle cx="72" cy="74" r="7" fill="#120f22" stroke="none"/>
+    <circle cx="118" cy="74" r="7" fill="#120f22" stroke="none"/>
+    <path d="M88 96q7 8 14 0z" fill="#120f22"/>
+    <path d="M60 220q-6 40-24 46M130 220q6 40 24 46" fill="none"/>
+    <!-- candle -->
+    <rect x="150" y="150" width="26" height="70" rx="6" fill="#f3e6c8"/>
+    <path d="M163 150q0-26 0-34q14 14 0 34z" fill="#f2c14e" stroke="#d9483b"/>
+  </g>
+  <!-- shared mic -->
+  <g stroke="#120f22" stroke-width="10"><circle cx="600" cy="250" r="26" fill="#333"/><line x1="600" y1="276" x2="600" y2="380"/></g>
+  <text x="600" y="700" text-anchor="middle" font-size="34" fill="#fff6c8" letter-spacing="4">SAVE THE WORLD FOR JIMOTHY</text>
+  <text x="600" y="112" text-anchor="middle" font-size="82" fill="#fff6c8" stroke="#120f22" stroke-width="9" paint-order="stroke" letter-spacing="2">THE RANDOM ASS ALL STARS</text>
+</svg>

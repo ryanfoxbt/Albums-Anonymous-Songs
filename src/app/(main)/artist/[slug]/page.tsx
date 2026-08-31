@@ -139,8 +139,11 @@ export default async function ArtistPage({
               <p className="max-w-[360px] text-center text-xs text-black/45 dark:text-white/45">
                 Collectible card {card.number}/
                 {String(CARD_SERIES.total).padStart(3, "0")} —{" "}
-                {CARD_SERIES.name}, {CARD_SERIES.edition}. {cardsPrinted} of{" "}
-                {CARD_SERIES.total} printed so far. Move your cursor over it.
+                {CARD_SERIES.name}, {CARD_SERIES.edition}.{" "}
+                {cardsPrinted >= CARD_SERIES.total
+                  ? "Full set."
+                  : `${cardsPrinted} of ${CARD_SERIES.total} printed so far.`}{" "}
+                Move your cursor over it.
               </p>
             </div>
           )}

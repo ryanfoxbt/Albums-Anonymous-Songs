@@ -108,13 +108,24 @@ export function ArtistTradingCard({ card }: { card: ArtistCard }) {
           </span>
 
           <div className="aacard-art">
-            <Image
-              src={card.image}
-              alt={card.imageAlt}
-              fill
-              sizes="(max-width: 480px) 86vw, 360px"
-              className="aacard-art-img"
-            />
+            {card.image.endsWith(".svg") ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={card.image}
+                alt={card.imageAlt}
+                loading="lazy"
+                decoding="async"
+                className="aacard-art-img aacard-art-img--fill"
+              />
+            ) : (
+              <Image
+                src={card.image}
+                alt={card.imageAlt}
+                fill
+                sizes="(max-width: 480px) 86vw, 360px"
+                className="aacard-art-img"
+              />
+            )}
             <span className="aacard-art-no">No. {card.number}</span>
             <span className="aacard-art-set">{CARD_SERIES.edition}</span>
           </div>
@@ -286,6 +297,13 @@ const CARD_CSS = `
   box-shadow: 0 2px 6px -2px rgba(0,0,0,.5) inset;
 }
 .aacard-art-img { object-fit: cover; }
+.aacard-art-img--fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 .aacard-art-no,
 .aacard-art-set {
   position: absolute;

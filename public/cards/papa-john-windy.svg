@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" font-family="'Arial Black','Arial',sans-serif">
+  <defs>
+    <linearGradient id="pjw" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffdca0"/><stop offset="1" stop-color="#c9772e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#pjw)"/>
+  <circle cx="600" cy="360" r="210" fill="#fff" opacity=".18"/>
+  <g stroke="#3a2410" stroke-width="11" stroke-linejoin="round" stroke-linecap="round">
+    <!-- open shirt torso -->
+    <path d="M430 560q6-140 128-152h84q122 12 128 152l12 190H418z" fill="#f6efe0"/>
+    <path d="M560 410l48 44 48-44M560 410v320M656 410v320"/>
+    <!-- head, eyes closed, blissed -->
+    <circle cx="608" cy="300" r="120" fill="#f2c9a0"/>
+    <path d="M508 290q22 14 42 0M566 290q22 14 42 0" fill="none"/>
+    <path d="M556 348q26 20 52 0"/>
+    <!-- big beard -->
+    <path d="M498 320q4 120 110 130t112-130q-26 40-56 40l-14 26-14-26q-30 0-38-16l-16 26-14-30q-30 4-56-46z" fill="#5a3b22"/>
+    <!-- flower-crown headband -->
+    <path d="M486 250q40-64 122-66t124 66" fill="none"/>
+    <circle cx="500" cy="250" r="16" fill="#e56a8a"/><circle cx="560" cy="214" r="16" fill="#f2c14e"/>
+    <circle cx="620" cy="200" r="16" fill="#e56a8a"/><circle cx="690" cy="220" r="16" fill="#8ec98a"/>
+    <!-- arm dabbing pizza with a napkin -->
+    <path d="M660 470q90-6 150 40" fill="none"/>
+    <path d="M800 470l90 34-30 78-92-30z" fill="#f6efe0"/>
+    <!-- pizza slice -->
+    <path d="M820 560l150-46 30 80-150 46z" fill="#f2c14e"/>
+    <path d="M820 560l90 60 60-100" fill="#d9483b"/>
+    <circle cx="900" cy="556" r="12" fill="#8b1f1f" stroke="none"/>
+    <circle cx="944" cy="590" r="12" fill="#8b1f1f" stroke="none"/>
+  </g>
+  <!-- grease droplets -->
+  <g fill="#e8b23a" stroke="#3a2410" stroke-width="5">
+    <path d="M770 470q6 16-3 24t-15-4q0-11 18-20z"/>
+    <path d="M740 520q5 14-3 21t-13-3q0-9 16-18z"/>
+  </g>
+  <!-- little green windy puff -->
+  <path d="M470 600q-40-4-40 22t34 14q-6 22 18 22t18-30q26 2 20-24t-30-16q-2-24-24-18t-16 30z" fill="#8ec98a" stroke="#3a2410" stroke-width="8"/>
+  <text x="600" y="112" text-anchor="middle" font-size="112" fill="#f6efe0" stroke="#3a2410" stroke-width="10" paint-order="stroke" letter-spacing="3">PAPA JOHN WINDY</text>
+</svg>

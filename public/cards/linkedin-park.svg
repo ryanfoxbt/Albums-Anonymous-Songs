@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" font-family="'Arial Black','Arial',sans-serif">
+  <defs>
+    <linearGradient id="lbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a66c2"/><stop offset="1" stop-color="#004182"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#lbg)"/>
+  <g opacity=".14" fill="#fff">
+    <rect x="120" y="180" width="360" height="26" rx="13"/>
+    <rect x="120" y="230" width="260" height="20" rx="10"/>
+    <rect x="740" y="520" width="340" height="24" rx="12"/>
+    <rect x="740" y="562" width="230" height="18" rx="9"/>
+  </g>
+  <!-- open-to-work ring -->
+  <circle cx="600" cy="400" r="230" fill="none" stroke="#0a8a3a" stroke-width="70"/>
+  <path d="M600 170a230 230 0 0 1 0 460" fill="none" stroke="#12b04a" stroke-width="70"/>
+  <text x="600" y="622" text-anchor="middle" font-size="52" fill="#fff" letter-spacing="3">#OPEN TO WORK</text>
+  <clipPath id="pfp"><circle cx="600" cy="400" r="196"/></clipPath>
+  <g clip-path="url(#pfp)">
+    <rect x="404" y="204" width="392" height="392" fill="#d9e6f2"/>
+    <g stroke="#141414" stroke-width="12" stroke-linejoin="round" stroke-linecap="round">
+      <!-- suit jacket over band tee -->
+      <path d="M430 620q0-150 90-176l80-16 80 16q90 26 90 176z" fill="#1f2937"/>
+      <path d="M600 428l-46 40 20 150M600 428l46 40-20 150" fill="#111"/>
+      <path d="M576 470h48v40h-48z" fill="#111"/>
+      <!-- head, screaming, chinstrap + frosted tips -->
+      <circle cx="600" cy="330" r="118" fill="#f2c9a0"/>
+      <path d="M486 300q6-92 114-94t116 94q-24-40-116-40t-114 40z" fill="#2a2a2a"/>
+      <path d="M492 292l16-30 18 26 18-28 18 28 18-26 16 30M712 292l-16-30-18 26-18-28-18 28-18-26-16 30" fill="#e6e6e6" stroke="none"/>
+      <path d="M486 348q10 60 60 78M714 348q-10 60-60 78" fill="none"/>
+      <path d="M566 300l16 14 16-14M636 300l-16 14-16-14" />
+      <ellipse cx="600" cy="392" rx="30" ry="40" fill="#5a1a1a"/>
+      <path d="M508 250q30 24 66 14M692 250q-30 24-66 14"/>
+    </g>
+  </g>
+  <!-- mic -->
+  <g stroke="#141414" stroke-width="12" stroke-linejoin="round">
+    <circle cx="612" cy="470" r="34" fill="#333"/>
+    <line x1="628" y1="496" x2="690" y2="600"/>
+  </g>
+  <text x="600" y="112" text-anchor="middle" font-size="118" fill="#fff" stroke="#004182" stroke-width="10" paint-order="stroke" letter-spacing="1">LINKED<tspan fill="#0a66c2" stroke="#fff">IN</tspan> PARK</text>
+</svg>

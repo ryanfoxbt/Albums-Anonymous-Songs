@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PodcastLinks } from "@/components/PodcastLinks";
 import { SocialLinks } from "@/components/SocialLinks";
 import { SubscribeForm } from "@/components/SubscribeForm";
@@ -25,6 +26,13 @@ export function Footer() {
           >
             Permanent Records LLC
           </a>
+          .{" "}
+          <Link
+            href="/contact"
+            className="underline hover:text-black/60 dark:hover:text-white/60"
+          >
+            Contact
+          </Link>
           .
         </p>
       </div>

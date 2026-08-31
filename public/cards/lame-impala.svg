@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" font-family="'Arial Black','Arial',sans-serif">
+  <defs>
+    <radialGradient id="psy" cx="50%" cy="55%" r="75%">
+      <stop offset="0" stop-color="#ffd27a"/><stop offset=".45" stop-color="#e77aa8"/><stop offset="1" stop-color="#7a4bb0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#psy)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="12" opacity=".35">
+    <circle cx="600" cy="410" r="120"/><circle cx="600" cy="410" r="200"/>
+    <circle cx="600" cy="410" r="290"/><circle cx="600" cy="410" r="380"/>
+  </g>
+  <g stroke="#241634" stroke-width="11" stroke-linejoin="round" stroke-linecap="round">
+    <!-- bathrobe body -->
+    <path d="M430 560q6-150 130-160h80q124 10 130 160l14 190H416z" fill="#eef3f6"/>
+    <path d="M566 402l40 60 40-60M566 402l6 320M646 402l-6 320" />
+    <path d="M470 470l-56 30M736 470l60 30"/>
+    <!-- head + bed hair -->
+    <circle cx="606" cy="300" r="122" fill="#f2c9a0"/>
+    <path d="M486 268q-30-70 8-70t20 40M726 268q30-70-8-70t-20 40M540 200q-20-60 20-70t26 44M672 200q20-60-20-70t-26 44M606 176q0-40 0-52" fill="#3a2a1e"/>
+    <!-- 3 eyes -->
+    <circle cx="566" cy="292" r="8" fill="#241634" stroke="none"/>
+    <circle cx="646" cy="292" r="8" fill="#241634" stroke="none"/>
+    <path d="M590 240q16-14 32 0q-16 22-32 0z" fill="#fff"/>
+    <circle cx="606" cy="240" r="6" fill="#241634" stroke="none"/>
+    <path d="M580 350q26 16 52 0" />
+    <!-- razor -->
+    <g transform="translate(320 470) rotate(-20)">
+      <rect x="0" y="0" width="30" height="150" rx="12" fill="#7ec8e6"/>
+      <rect x="-18" y="-46" width="66" height="46" rx="8" fill="#d8d8d8"/>
+      <line x1="-18" y1="-24" x2="48" y2="-24"/>
+    </g>
+    <!-- snack / juice box -->
+    <g transform="translate(820 470)">
+      <rect x="0" y="0" width="90" height="130" rx="8" fill="#ffd27a"/>
+      <path d="M60 0l6-40h16l-6 40" />
+      <path d="M12 40h66M12 70h66" opacity=".5"/>
+    </g>
+  </g>
+  <!-- sweat + ooh notes -->
+  <path d="M676 300q10 24-4 36t-22-6q0-16 26-30z" fill="#7fb7e6" stroke="#241634" stroke-width="6"/>
+  <g fill="#241634" font-size="46" font-style="italic">
+    <text x="812" y="210">ooh</text><text x="880" y="300">ooh</text>
+  </g>
+  <text x="600" y="112" text-anchor="middle" font-size="120" fill="#eef3f6" stroke="#241634" stroke-width="10" paint-order="stroke" letter-spacing="4" transform="rotate(-3 600 100)">LAME IMPALA</text>
+</svg>

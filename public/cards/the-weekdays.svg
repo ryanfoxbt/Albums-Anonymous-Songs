@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" font-family="'Arial Black','Arial',sans-serif">
+  <defs>
+    <linearGradient id="wbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a0f4a"/><stop offset=".55" stop-color="#5b1e8a"/><stop offset="1" stop-color="#111"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#wbg)"/>
+  <g fill="#a06bd8" opacity=".12" font-size="60" font-style="italic">
+    <text x="60" y="170">phone</text><text x="820" y="240">phone</text>
+    <text x="120" y="640">phone</text><text x="760" y="690">phone</text><text x="440" y="720">phone</text>
+  </g>
+  <!-- Weeknd-ish silhouette head with tall hair -->
+  <g stroke="#0c0616" stroke-width="12" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M470 620q-4-160 130-186l60-8 62 8q132 26 128 186z" fill="#20122f"/>
+    <circle cx="612" cy="330" r="130" fill="#3a2a1c"/>
+    <path d="M486 292q-14-70 20-118t60-30q-30 44-20 92M738 292q14-70-20-118t-60-30q30 44 20 92M540 196q-18-56 14-96t44-22q-24 40-16 88M684 196q18-56-14-96t-44-22q24 40 16 88" fill="#0c0616"/>
+    <!-- face lit by phone glow -->
+    <path d="M520 360q30 30 90 30t90-30" fill="none"/>
+    <circle cx="574" cy="330" r="8" fill="#0c0616" stroke="none"/>
+    <circle cx="650" cy="330" r="8" fill="#0c0616" stroke="none"/>
+    <path d="M596 388q16 10 32 0"/>
+    <!-- both hands holding a glowing phone -->
+    <path d="M470 470q60 60 90 150M754 470q-60 60-90 150" fill="none"/>
+    <rect x="548" y="470" width="130" height="220" rx="20" fill="#0c0616"/>
+    <rect x="566" y="492" width="94" height="176" rx="8" fill="#bda6ff"/>
+  </g>
+  <ellipse cx="613" cy="560" rx="120" ry="150" fill="#bda6ff" opacity=".22"/>
+  <!-- milk, forbidden -->
+  <g transform="translate(120 430)" stroke="#0c0616" stroke-width="10" stroke-linejoin="round">
+    <path d="M30 40h90l14 150q2 30-30 30H46q-32 0-30-30z" fill="#f6f6f6"/>
+    <path d="M30 40l-6-30h102l-6 30" fill="#eee"/>
+    <circle cx="76" cy="120" r="86" fill="none" stroke="#d6202a" stroke-width="16"/>
+    <line x1="20" y1="64" x2="132" y2="176" stroke="#d6202a" stroke-width="16"/>
+  </g>
+  <text x="600" y="112" text-anchor="middle" font-size="124" fill="#f0e6ff" stroke="#0c0616" stroke-width="10" paint-order="stroke" letter-spacing="4">THE WEEKDAYS</text>
+</svg>

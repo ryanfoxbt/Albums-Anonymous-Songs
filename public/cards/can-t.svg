@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" font-family="'Arial Black','Arial',sans-serif">
+  <defs>
+    <linearGradient id="cbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a49150"/><stop offset="1" stop-color="#6f6236"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#cbg)"/>
+  <g stroke="#4c4326" stroke-width="4" opacity=".5">
+    <path d="M0 250H1200M0 430H1200M0 610H1200M200 60V750M470 60V750M740 60V750M1010 60V750"/>
+  </g>
+  <g stroke="#211d10" stroke-width="11" stroke-linejoin="round" stroke-linecap="round">
+    <!-- toilet -->
+    <rect x="690" y="300" width="150" height="180" rx="18" fill="#f4f1e6"/>
+    <path d="M560 470q0-40 40-40h250q40 0 40 40l-30 150q-6 40-48 40H638q-42 0-48-40z" fill="#f4f1e6"/>
+    <ellipse cx="720" cy="470" rx="150" ry="42" fill="#fff"/>
+    <ellipse cx="720" cy="470" rx="92" ry="20" fill="#c9c3ac"/>
+    <path d="M628 560q0 60 92 60t92-60" fill="none"/>
+    <!-- the can, sitting -->
+    <path d="M360 300h250q22 0 22 22v250q0 26-26 26H364q-26 0-26-26V322q0-22 22-22z" fill="#d7d9dc"/>
+    <ellipse cx="485" cy="300" rx="125" ry="30" fill="#eef0f2"/>
+    <rect x="338" y="380" width="295" height="86" fill="#c8402f"/>
+    <!-- arms: one slumped, one on the knee -->
+    <path d="M338 430q-70 10-96 70" fill="none"/>
+    <path d="M633 440q40 6 40 40" fill="none"/>
+    <!-- face -->
+    <circle cx="430" cy="345" r="9" fill="#211d10" stroke="none"/>
+    <circle cx="520" cy="345" r="9" fill="#211d10" stroke="none"/>
+    <path d="M425 388h90" />
+    <path d="M400 300q-14-24-4-46M560 300q16-22 8-46M485 262q0-24 0-30" opacity=".8"/>
+    <path d="M572 330q20 8 34-2" opacity=".7"/>
+  </g>
+  <!-- sweat + strain -->
+  <path d="M545 320q10 22-4 34t-22-6q0-16 26-28z" fill="#7fb7e6" stroke="#211d10" stroke-width="6"/>
+  <!-- peanut, forbidden -->
+  <g transform="translate(150 210)" stroke="#211d10" stroke-width="10" stroke-linejoin="round">
+    <path d="M20 60q-20-30 6-52t54 4q12 12 30 8t34 14q16 24-6 46t-52 6q-14-8-30-4t-36-32z" fill="#e0b878"/>
+    <circle cx="70" cy="40" r="86" fill="none" stroke="#d6202a" stroke-width="16"/>
+    <line x1="14" y1="-16" x2="126" y2="96" stroke="#d6202a" stroke-width="16"/>
+  </g>
+  <!-- TP -->
+  <g transform="translate(940 190)" stroke="#211d10" stroke-width="10" stroke-linejoin="round">
+    <ellipse cx="60" cy="40" rx="60" ry="40" fill="#fbfaf5"/>
+    <ellipse cx="60" cy="40" rx="18" ry="12" fill="#b7b09a"/>
+    <path d="M60 78q-6 60 6 96" fill="#fbfaf5"/>
+  </g>
+  <text x="600" y="115" text-anchor="middle" font-size="150" fill="#f4f1e6" stroke="#211d10" stroke-width="10" paint-order="stroke" letter-spacing="6" transform="skewX(-6)">CAN'T</text>
+</svg>

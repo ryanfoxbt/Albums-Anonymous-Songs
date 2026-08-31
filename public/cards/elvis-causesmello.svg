@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" font-family="'Arial Black','Arial',sans-serif">
+  <defs>
+    <pattern id="check" width="120" height="120" patternUnits="userSpaceOnUse">
+      <rect width="120" height="120" fill="#f0e6d0"/>
+      <rect width="60" height="60" fill="#e08fb0"/>
+      <rect x="60" y="60" width="60" height="60" fill="#8ec98a"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="750" fill="url(#check)"/>
+  <rect width="1200" height="750" fill="#5b8c3e" opacity=".12"/>
+  <g stroke="#1c1712" stroke-width="11" stroke-linejoin="round" stroke-linecap="round">
+    <!-- torso: upturned collar shirt + skinny tie -->
+    <path d="M430 560q0-140 130-150l90-6q140 6 140 156v190H430z" fill="#f6f4ee"/>
+    <path d="M560 404l-46 60 60 40 60-40-46-60z" fill="#1c1712"/>
+    <path d="M574 504l14 220h-30l6-220z" fill="#c0392b"/>
+    <path d="M470 470l-60 40M700 470l64 40" />
+    <!-- head -->
+    <circle cx="588" cy="300" r="120" fill="#f2c9a0"/>
+    <path d="M470 262q10-90 118-92t122 92q-30-30-120-28t-120 28z" fill="#241c12"/>
+    <path d="M470 262q26 26 62 22M710 262q-26 26-60 22"/>
+    <!-- big glasses -->
+    <rect x="486" y="278" width="86" height="66" rx="10" fill="#dff0ff"/>
+    <rect x="600" y="278" width="86" height="66" rx="10" fill="#dff0ff"/>
+    <line x1="572" y1="300" x2="600" y2="300"/>
+    <circle cx="529" cy="311" r="6" fill="#1c1712" stroke="none"/>
+    <circle cx="643" cy="311" r="6" fill="#1c1712" stroke="none"/>
+    <path d="M560 388q28 20 56 0" />
+    <!-- little yappy dog cockblocking -->
+    <g transform="translate(300 520)">
+      <path d="M40 60q0-40 44-44l70-2q40 6 40 44v70q0 28-30 28H62q-22 0-22-26z" fill="#c9a15e"/>
+      <circle cx="180" cy="40" r="40" fill="#c9a15e"/>
+      <path d="M150 6q-16-30 6-36t20 24M210 6q16-30-6-36t-20 24" fill="#c9a15e"/>
+      <circle cx="192" cy="36" r="5" fill="#1c1712" stroke="none"/>
+      <path d="M206 52q16 4 22-6" />
+      <path d="M40 90q-30 0-34 30" />
+    </g>
+    <text x="184" y="470" font-size="40" fill="#1c1712" stroke="none" transform="rotate(-8 184 470)">yap! yap!</text>
+    <!-- heart, blocked -->
+    <path d="M980 470q30-40 60-10t-4 70l-56 54-56-54q-34-40-4-70t60 10z" fill="#c0392b"/>
+  </g>
+  <!-- green smell wisps -->
+  <g stroke="#5b8c3e" stroke-width="10" fill="none" stroke-linecap="round" opacity=".85">
+    <path d="M760 210q26-30 4-56M812 240q30-26 8-58M846 300q34-16 20-56"/>
+  </g>
+  <text x="600" y="110" text-anchor="middle" font-size="96" fill="#f6f4ee" stroke="#1c1712" stroke-width="9" paint-order="stroke" letter-spacing="2">ELVIS CAUSESMELLO</text>
+</svg>

@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { enumeratePacificDays, pacificDayKey, type DateRange } from "@/lib/dateRange";
 import { pickMerchVariant, type MerchVariant } from "@/lib/merchVariant";
+import {
+  excludeBySessionVisitor,
+  excludeByVisitorId,
+  excludeByVisitorPk,
+  excludedSubscriberFilter,
+  getExcludedVisitorIds,
+} from "@/lib/analyticsExclusions";
 
 function sessionDurationMs(session: {
   startedAt: Date;
@@ -30,6 +37,9 @@ export type OverviewStats = {
 
 export async function getOverviewStats(range: DateRange): Promise<OverviewStats> {
   const startedAt = { gte: range.from, lte: range.to };
+  const excluded = await getExcludedVisitorIds();
+  const bySession = excludeBySessionVisitor(excluded);
+  const byVisitorId = excludeByVisitorId(excluded);
 
   const [
     uniqueVisitors,
@@ -46,31 +56,35 @@ export async function getOverviewStats(range: DateRange): Promise<OverviewStats>
     newSubscribers,
   ] = await Promise.all([
     prisma.visitor.count({
-      where: { sessions: { some: { startedAt } } },
+      where: { sessions: { some: { startedAt } }, ...excludeByVisitorPk(excluded) },
     }),
-    prisma.visitSession.count({ where: { startedAt } }),
-    prisma.pageView.count({ where: { visitedAt: startedAt } }),
+    prisma.visitSession.count({ where: { startedAt, ...byVisitorId } }),
+    prisma.pageView.count({ where: { visitedAt: startedAt, ...bySession } }),
     prisma.visitSession.findMany({
-      where: { startedAt },
+      where: { startedAt, ...byVisitorId },
       select: { startedAt: true, lastActivityAt: true },
     }),
     prisma.visitSession.count({
-      where: { startedAt, isReturning: true },
+      where: { startedAt, isReturning: true, ...byVisitorId },
     }),
     prisma.pageView.groupBy({
       by: ["sessionId"],
-      where: { visitedAt: startedAt },
+      where: { visitedAt: startedAt, ...bySession },
       _count: { id: true },
     }),
-    prisma.songPlayEvent.count({ where: { playedAt: startedAt } }),
+    prisma.songPlayEvent.count({ where: { playedAt: startedAt, ...byVisitorId } }),
     prisma.songPlayEvent.aggregate({
-      where: { playedAt: startedAt },
+      where: { playedAt: startedAt, ...byVisitorId },
       _sum: { listenedSeconds: true },
     }),
-    prisma.podcastLinkClick.count({ where: { clickedAt: startedAt } }),
-    prisma.announcementLinkClick.count({ where: { clickedAt: startedAt } }),
-    prisma.subscriber.count(),
-    prisma.subscriber.count({ where: { subscribedAt: startedAt } }),
+    prisma.podcastLinkClick.count({ where: { clickedAt: startedAt, ...byVisitorId } }),
+    prisma.announcementLinkClick.count({
+      where: { clickedAt: startedAt, ...byVisitorId },
+    }),
+    prisma.subscriber.count({ where: excludedSubscriberFilter }),
+    prisma.subscriber.count({
+      where: { subscribedAt: startedAt, ...excludedSubscriberFilter },
+    }),
   ]);
 
   const avgSessionDurationMs = sessionsForDuration.length
@@ -111,17 +125,27 @@ export type DailyMetrics = {
 
 /** Daily counts across the range, one bucket per Pacific calendar day (zero-filled). */
 export async function getTimeSeries(range: DateRange): Promise<DailyMetrics[]> {
+  const excluded = await getExcludedVisitorIds();
   const [sessions, pageviews, songPlays] = await Promise.all([
     prisma.visitSession.findMany({
-      where: { startedAt: { gte: range.from, lte: range.to } },
+      where: {
+        startedAt: { gte: range.from, lte: range.to },
+        ...excludeByVisitorId(excluded),
+      },
       select: { startedAt: true, visitorId: true },
     }),
     prisma.pageView.findMany({
-      where: { visitedAt: { gte: range.from, lte: range.to } },
+      where: {
+        visitedAt: { gte: range.from, lte: range.to },
+        ...excludeBySessionVisitor(excluded),
+      },
       select: { visitedAt: true },
     }),
     prisma.songPlayEvent.findMany({
-      where: { playedAt: { gte: range.from, lte: range.to } },
+      where: {
+        playedAt: { gte: range.from, lte: range.to },
+        ...excludeByVisitorId(excluded),
+      },
       select: { playedAt: true, listenedSeconds: true },
     }),
   ]);
@@ -182,7 +206,10 @@ export async function getTopPages(
 ): Promise<TopPage[]> {
   const rows = await prisma.pageView.groupBy({
     by: ["path"],
-    where: { visitedAt: { gte: range.from, lte: range.to } },
+    where: {
+      visitedAt: { gte: range.from, lte: range.to },
+      ...excludeBySessionVisitor(await getExcludedVisitorIds()),
+    },
     _count: { id: true },
     _avg: { durationMs: true },
     orderBy: { _count: { id: "desc" } },
@@ -209,7 +236,10 @@ export async function getTopLocations(
 ): Promise<TopLocation[]> {
   const rows = await prisma.visitSession.groupBy({
     by: ["city", "region", "country"],
-    where: { startedAt: { gte: range.from, lte: range.to } },
+    where: {
+      startedAt: { gte: range.from, lte: range.to },
+      ...excludeByVisitorId(await getExcludedVisitorIds()),
+    },
     _count: { id: true },
     orderBy: { _count: { id: "desc" } },
     take: limit,
@@ -240,7 +270,10 @@ export async function getEntryChoiceBreakdown(
 ): Promise<EntryChoiceBreakdown> {
   const rows = await prisma.visitSession.groupBy({
     by: ["entryChoice"],
-    where: { startedAt: { gte: range.from, lte: range.to } },
+    where: {
+      startedAt: { gte: range.from, lte: range.to },
+      ...excludeByVisitorId(await getExcludedVisitorIds()),
+    },
     _count: { id: true },
   });
 
@@ -280,7 +313,10 @@ export async function getTopSources(
   limit = 10,
 ): Promise<TopSource[]> {
   const sessions = await prisma.visitSession.findMany({
-    where: { startedAt: { gte: range.from, lte: range.to } },
+    where: {
+      startedAt: { gte: range.from, lte: range.to },
+      ...excludeByVisitorId(await getExcludedVisitorIds()),
+    },
     select: { utmSource: true, utmMedium: true, referrer: true },
   });
 
@@ -388,9 +424,10 @@ export async function getSongLeaderboard(
   limit = 20,
 ): Promise<SongLeaderboardEntry[]> {
   const playedAt = { gte: range.from, lte: range.to };
+  const excluded = await getExcludedVisitorIds();
   const [events, clickCounts] = await Promise.all([
     prisma.songPlayEvent.findMany({
-      where: { playedAt },
+      where: { playedAt, ...excludeByVisitorId(excluded) },
       select: {
         songId: true,
         visitorId: true,
@@ -400,7 +437,7 @@ export async function getSongLeaderboard(
     }),
     prisma.podcastLinkClick.groupBy({
       by: ["songId"],
-      where: { clickedAt: playedAt },
+      where: { clickedAt: playedAt, ...excludeByVisitorId(excluded) },
       _count: { id: true },
     }),
   ]);
@@ -428,17 +465,20 @@ export async function getReturningVisitorStats(
   range: DateRange,
 ): Promise<ReturningVisitorStats> {
   const startedAt = { gte: range.from, lte: range.to };
+  const excluded = await getExcludedVisitorIds();
+  const byVisitorId = excludeByVisitorId(excluded);
   const [returningVisitorRows, returningSessions, songPlayEvents] = await Promise.all([
     prisma.visitSession.findMany({
-      where: { startedAt, isReturning: true },
+      where: { startedAt, isReturning: true, ...byVisitorId },
       select: { visitorId: true },
       distinct: ["visitorId"],
     }),
-    prisma.visitSession.count({ where: { startedAt, isReturning: true } }),
+    prisma.visitSession.count({ where: { startedAt, isReturning: true, ...byVisitorId } }),
     prisma.songPlayEvent.findMany({
       where: {
         playedAt: { gte: range.from, lte: range.to },
         session: { isReturning: true },
+        ...byVisitorId,
       },
       select: { listenedSeconds: true },
     }),
@@ -469,6 +509,7 @@ export async function getReturningVisitorSongLeaderboard(
     where: {
       playedAt: { gte: range.from, lte: range.to },
       session: { isReturning: true },
+      ...excludeByVisitorId(await getExcludedVisitorIds()),
     },
     select: {
       songId: true,
@@ -495,6 +536,7 @@ export async function getRecentSubscribers(
   limit = 10,
 ): Promise<RecentSubscriber[]> {
   const subscribers = await prisma.subscriber.findMany({
+    where: excludedSubscriberFilter,
     orderBy: { subscribedAt: "desc" },
     take: limit,
     include: { visitor: true },
@@ -528,6 +570,7 @@ export type VisitorListItem = {
 
 export async function getVisitorList(limit = 50): Promise<VisitorListItem[]> {
   const visitors = await prisma.visitor.findMany({
+    where: excludeByVisitorPk(await getExcludedVisitorIds()),
     orderBy: { lastSeenAt: "desc" },
     take: limit,
     include: {
@@ -782,6 +825,7 @@ export async function getUtmLinks(): Promise<UtmLinkWithStats[]> {
   const links = await prisma.utmLink.findMany({
     orderBy: { createdAt: "desc" },
   });
+  const excluded = await getExcludedVisitorIds();
 
   return Promise.all(
     links.map(async (link) => {
@@ -790,6 +834,7 @@ export async function getUtmLinks(): Promise<UtmLinkWithStats[]> {
           utmSource: link.utmSource,
           utmMedium: link.utmMedium,
           utmCampaign: link.utmCampaign,
+          ...excludeByVisitorId(excluded),
         },
       });
       return { ...link, attributedSessions };
@@ -835,7 +880,10 @@ export type PathBreakdown = {
  */
 export async function getPathsBreakdown(range: DateRange): Promise<PathBreakdown[]> {
   const sessions = await prisma.visitSession.findMany({
-    where: { startedAt: { gte: range.from, lte: range.to } },
+    where: {
+      startedAt: { gte: range.from, lte: range.to },
+      ...excludeByVisitorId(await getExcludedVisitorIds()),
+    },
     select: {
       landingPath: true,
       songPlays: { select: { id: true }, take: 1 },
@@ -896,10 +944,15 @@ export async function getMerchAbResults(config: {
   variantAText: string;
   variantBText: string;
 }): Promise<MerchAbResult[]> {
+  const excluded = await getExcludedVisitorIds();
   const [visitors, clickRows] = await Promise.all([
-    prisma.visitor.findMany({ select: { id: true } }),
+    prisma.visitor.findMany({
+      where: excludeByVisitorPk(excluded),
+      select: { id: true },
+    }),
     prisma.merchLinkClick.groupBy({
       by: ["variant"],
+      where: excludeByVisitorId(excluded),
       _count: { id: true },
     }),
   ]);
@@ -951,6 +1004,8 @@ export type DjBoothStats = {
 
 export async function getDjBoothStats(range: DateRange): Promise<DjBoothStats> {
   const inRange = { gte: range.from, lte: range.to };
+  const excluded = await getExcludedVisitorIds();
+  const bySession = excludeBySessionVisitor(excluded);
 
   const [
     boothViews,
@@ -962,11 +1017,19 @@ export async function getDjBoothStats(range: DateRange): Promise<DjBoothStats> {
     recentRows,
     topSongRows,
   ] = await Promise.all([
-    prisma.pageView.count({ where: { path: "/dj", visitedAt: inRange } }),
-    prisma.pageView.count({ where: { path: "/dj/learn", visitedAt: inRange } }),
-    prisma.djMix.count({ where: { createdAt: inRange } }),
+    prisma.pageView.count({ where: { path: "/dj", visitedAt: inRange, ...bySession } }),
+    prisma.pageView.count({
+      where: { path: "/dj/learn", visitedAt: inRange, ...bySession },
+    }),
+    prisma.djMix.count({
+      where: { createdAt: inRange, ...excludeByVisitorId(excluded) },
+    }),
     prisma.djMix.findMany({
-      where: { createdAt: inRange, visitorId: { not: null } },
+      where: {
+        createdAt: inRange,
+        visitorId: { not: null },
+        ...excludeByVisitorId(excluded),
+      },
       select: { visitorId: true },
       distinct: ["visitorId"],
     }),

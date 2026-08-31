@@ -2,6 +2,7 @@ import Image from "next/image";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { LogoUploadForm } from "@/components/admin/LogoUploadForm";
 import { getMerchAbResults } from "@/lib/analyticsQueries";
+import { ENGAGEMENT_THRESHOLD } from "@/lib/merchEngagement";
 import { formatPercent } from "@/lib/formatAnalytics";
 import { getAnnouncement, getMerchAbTest, getSiteLogoUrl } from "@/lib/siteSettings";
 import {
@@ -244,6 +245,22 @@ export default async function AdminSettingsPage({
             />
             Run the test (unchecked always shows Variant A)
           </label>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="linkGateEnabled"
+              defaultChecked={merchAbTest.linkGateEnabled}
+              className="h-4 w-4 rounded border-black/30 dark:border-white/30"
+            />
+            Hide the link until a visitor is engaged
+          </label>
+          <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
+            On by default. The link only appears once a visitor clears an
+            engagement score of {ENGAGEMENT_THRESHOLD} — earned from things
+            like returning, subscribing, recording a mix, playing 3+ songs,
+            or 5+ minutes of listening. Untick to show it to everyone.
+          </p>
 
           <button
             type="submit"

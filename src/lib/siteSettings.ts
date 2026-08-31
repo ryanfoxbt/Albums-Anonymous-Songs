@@ -55,6 +55,8 @@ export type MerchAbTest = {
   enabled: boolean;
   variantAText: string;
   variantBText: string;
+  /** When true, the header merch link is hidden until the visitor is "engaged" (see src/lib/merchEngagement.ts). */
+  linkGateEnabled: boolean;
 };
 
 export async function getMerchAbTest(): Promise<MerchAbTest> {
@@ -64,12 +66,14 @@ export async function getMerchAbTest(): Promise<MerchAbTest> {
       merchAbTestEnabled: true,
       merchVariantAText: true,
       merchVariantBText: true,
+      merchLinkGateEnabled: true,
     },
   });
   return {
     enabled: setting?.merchAbTestEnabled ?? true,
     variantAText: setting?.merchVariantAText ?? "Your wife will hate it",
     variantBText: setting?.merchVariantBText ?? "Mom would be so disappointed",
+    linkGateEnabled: setting?.merchLinkGateEnabled ?? true,
   };
 }
 
@@ -81,11 +85,13 @@ export async function setMerchAbTest(test: MerchAbTest): Promise<void> {
       merchAbTestEnabled: test.enabled,
       merchVariantAText: test.variantAText,
       merchVariantBText: test.variantBText,
+      merchLinkGateEnabled: test.linkGateEnabled,
     },
     update: {
       merchAbTestEnabled: test.enabled,
       merchVariantAText: test.variantAText,
       merchVariantBText: test.variantBText,
+      merchLinkGateEnabled: test.linkGateEnabled,
     },
   });
 }

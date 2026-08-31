@@ -103,6 +103,7 @@ export async function updateMerchAbTest(formData: FormData) {
   await requireAdmin();
 
   const enabled = formData.get("enabled") === "on";
+  const linkGateEnabled = formData.get("linkGateEnabled") === "on";
   const variantAText = String(formData.get("variantAText") ?? "").trim();
   const variantBText = String(formData.get("variantBText") ?? "").trim();
 
@@ -114,7 +115,7 @@ export async function updateMerchAbTest(formData: FormData) {
     );
   }
 
-  await setMerchAbTest({ enabled, variantAText, variantBText });
+  await setMerchAbTest({ enabled, linkGateEnabled, variantAText, variantBText });
 
   revalidatePath("/admin/settings");
   revalidatePath("/", "layout");

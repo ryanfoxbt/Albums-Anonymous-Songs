@@ -60,6 +60,11 @@ model SiteSetting {
   merchVariantAText  String  @default("Your wife will hate it")
   merchVariantBText  String  @default("Mom would be so disappointed")
 
+  // When true (default) the header's merch link stays hidden until the
+  // visitor clears the engagement bar in src/lib/merchEngagement.ts.
+  // Untick it to show the link to everyone.
+  merchLinkGateEnabled Boolean @default(true)
+
   updatedAt             DateTime @updatedAt
 }
 

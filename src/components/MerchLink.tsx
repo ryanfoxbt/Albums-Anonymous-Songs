@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { trackMerchClick } from "@/lib/analyticsClient";
 
-// Matches the SiteSetting.merchVariantAText default in prisma/schema.prisma —
-// shown until the client-side variant fetch resolves (the aa_vid cookie is
-// httpOnly, so the variant can't be read directly in the browser).
-const DEFAULT_TEXT = "Your wife will hate it";
-
+// The merch link is hidden by default and only shown to visitors the
+// server considers "engaged" (see src/lib/merchEngagement.ts). The aa_vid
+// cookie is httpOnly, so that decision — and the A/B copy — come back from
+// /api/merch-variant rather than being computed in the browser.
 export function MerchLink({
   href,
   className,
@@ -15,23 +14,37 @@ export function MerchLink({
   href: string;
   className?: string;
 }) {
-  const [variant, setVariant] = useState("a");
-  const [text, setText] = useState(DEFAULT_TEXT);
+  const [state, setState] = useState<{
+    visible: boolean;
+    variant: string;
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/merch-variant")
       .then((response) => (response.ok ? response.json() : null))
-      .then((data: { variant?: string; text?: string } | null) => {
-        if (cancelled || !data?.variant || !data.text) return;
-        setVariant(data.variant);
-        setText(data.text);
-      })
+      .then(
+        (data: {
+          variant?: string;
+          text?: string;
+          visible?: boolean;
+        } | null) => {
+          if (cancelled || !data?.variant || !data.text) return;
+          setState({
+            visible: data.visible ?? false,
+            variant: data.variant,
+            text: data.text,
+          });
+        },
+      )
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
+
+  if (!state || !state.visible) return null;
 
   return (
     <a
@@ -41,10 +54,10 @@ export function MerchLink({
       title="Merch"
       className={className}
       onClick={() =>
-        trackMerchClick(variant, text, window.location.pathname)
+        trackMerchClick(state.variant, state.text, window.location.pathname)
       }
     >
-      {text}
+      {state.text}
     </a>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { formatArtistCredit } from "@/lib/artistCredit";
 import { buildContinuousQueue } from "@/lib/continuousPlay";
+import { isNewSong } from "@/lib/newSong";
 import { toPlayerSong } from "@/lib/playerSong";
 import type { SongWithRelations } from "@/lib/songs";
 import { AudioPlayer } from "./AudioPlayer";
@@ -17,6 +18,7 @@ export function SongCard({
   allSongs: SongWithRelations[];
 }) {
   const { currentSong, playQueue, togglePlay } = usePlayer();
+  const isNew = isNewSong(song.createdAt);
 
   const handlePlay = () => {
     if (currentSong?.id === song.id) {
@@ -30,10 +32,15 @@ export function SongCard({
   return (
     <li className="flex flex-col gap-3 rounded-2xl border border-black/10 p-4 dark:border-white/10">
       <div>
-        <h3 className="font-semibold leading-tight">
+        <h3 className="flex items-center gap-2 font-semibold leading-tight">
           <Link href={`/song/${song.slug}`} className="hover:underline">
             {song.title}
           </Link>
+          {isNew && (
+            <span className="shrink-0 rounded-full bg-[#F760D6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+              New
+            </span>
+          )}
         </h3>
         <p className="text-sm text-[#F760D6]">{formatArtistCredit(song)}</p>
       </div>

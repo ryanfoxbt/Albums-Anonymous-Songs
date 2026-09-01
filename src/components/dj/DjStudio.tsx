@@ -276,14 +276,18 @@ export function DjStudio({ songs }: { songs: DjSong[] }) {
           type="button"
           onClick={() => setDancerOn((v) => !v)}
           aria-pressed={dancerOn}
-          title={dancerOn ? `${DANCER_HINT}  ·  click to hide` : "Dancer — click, then use the keyboard"}
+          title={
+            dancerOn
+              ? `${DANCER_HINT}  ·  click to hide`
+              : "Kall of Booty dancer — click, then use the keyboard (or hit AUTO)"
+          }
           className={`ml-auto rounded-full px-2 py-1 text-xs transition-opacity ${
             dancerOn
               ? "text-black/50 opacity-90 dark:text-white/50"
               : "text-black/30 opacity-50 hover:opacity-100 dark:text-white/30"
           }`}
         >
-          🕺{dancerOn ? " ·" : ""}
+          🍑{dancerOn ? " ·" : ""}
         </button>
       </div>
 

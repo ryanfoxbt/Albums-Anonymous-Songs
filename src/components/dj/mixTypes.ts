@@ -34,8 +34,9 @@ export type MixEvent =
   | { t: number; k: "fx"; deck: DeckId; key: FxKey; v: number } // bool encoded 0/1
   | { t: number; k: "crossfader"; v: number }
   | { t: number; k: "autoDj"; v: number } // 0/1
-  // The optional stick-figure dancer. `move` is a move name, or "enter"/"exit"
+  // The optional Kall of Booty dancer. `move` is a move name, or "enter"/"exit"
   // when it toggles on/off. `x` is 0..1 of the viewport width; `facing` is 1/-1.
+  // (His on-screen size and AUTO freestyle are local view prefs, not recorded.)
   | { t: number; k: "dancer"; move: string; x: number; facing: number };
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown

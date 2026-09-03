@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { EmailGateDialog } from "@/components/EmailGateDialog";
-import { isEmailUnlocked } from "@/lib/emailGate";
 import { DJ_DRAG_MIME, type DjSong } from "./types";
 
 type ListedFilter = "all" | "listed" | "unlisted";
@@ -11,28 +9,22 @@ type SortOrder = "title" | "newest" | "popular";
 export function SongBrowser({
   songs,
   onLoad,
+  allowUnlisted = false,
 }: {
   songs: DjSong[];
   onLoad: (deck: "A" | "B", songId: string) => void;
+  /** Show the Listed/Unlisted filter row (admin booth only). */
+  allowUnlisted?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ListedFilter>("all");
   const [sort, setSort] = useState<SortOrder>("title");
-  const [unlistedGateOpen, setUnlistedGateOpen] = useState(false);
-
-  const selectFilter = (f: ListedFilter) => {
-    if (f === "unlisted" && !isEmailUnlocked()) {
-      setUnlistedGateOpen(true);
-      return;
-    }
-    setFilter(f);
-  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const matches = songs.filter((song) => {
-      if (filter === "listed" && song.hidden) return false;
-      if (filter === "unlisted" && !song.hidden) return false;
+      if (allowUnlisted && filter === "listed" && song.hidden) return false;
+      if (allowUnlisted && filter === "unlisted" && !song.hidden) return false;
       if (!q) return true;
       return (
         song.title.toLowerCase().includes(q) ||
@@ -46,11 +38,10 @@ export function SongBrowser({
       return [...matches].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
     return matches;
-  }, [songs, query, filter, sort]);
+  }, [songs, query, filter, sort, allowUnlisted]);
 
   return (
-    <>
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 rounded-2xl border border-black/10 p-3 dark:border-white/10">
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5 rounded-2xl border border-black/10 p-3 dark:border-white/10">
       <p className="text-xs font-bold uppercase tracking-wide text-black/40 dark:text-white/40">
         Tracks
       </p>
@@ -62,29 +53,34 @@ export function SongBrowser({
         onChange={(e) => setQuery(e.target.value)}
         className="w-full rounded-full border border-black/15 bg-transparent px-3 py-1.5 text-xs outline-none focus:border-foreground dark:border-white/20"
       />
-      <div className="flex gap-1 text-[10px]">
-        {(["all", "listed", "unlisted"] as const).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => selectFilter(f)}
-            className={`rounded-full border px-2.5 py-1 font-medium capitalize ${
-              filter === f
-                ? "border-foreground bg-foreground text-background"
-                : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-            }`}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
+
+      {allowUnlisted && (
+        <div className="flex gap-1 text-[10px]">
+          {(["all", "listed", "unlisted"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              className={`rounded-full border px-2.5 py-1 font-medium capitalize ${
+                filter === f
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex gap-1 text-[10px]">
-        {([
-          ["title", "A–Z"],
-          ["newest", "Newest"],
-          ["popular", "Most popular"],
-        ] as const).map(([value, label]) => (
+        {(
+          [
+            ["title", "A–Z"],
+            ["newest", "Newest"],
+            ["popular", "Most popular"],
+          ] as const
+        ).map(([value, label]) => (
           <button
             key={value}
             type="button"
@@ -114,7 +110,7 @@ export function SongBrowser({
             <div className="min-w-0">
               <p className="flex items-center gap-1.5 truncate font-medium">
                 {song.title}
-                {song.hidden && (
+                {allowUnlisted && song.hidden && (
                   <span className="shrink-0 rounded-full bg-black/10 px-1.5 py-0.5 text-[9px] font-normal text-black/60 dark:bg-white/10 dark:text-white/60">
                     Unlisted
                   </span>
@@ -150,17 +146,6 @@ export function SongBrowser({
           </p>
         )}
       </ul>
-      </div>
-
-      <EmailGateDialog
-        open={unlistedGateOpen}
-        reason="unlisted"
-        onClose={() => setUnlistedGateOpen(false)}
-        onUnlocked={() => {
-          setUnlistedGateOpen(false);
-          setFilter("unlisted");
-        }}
-      />
-    </>
+    </div>
   );
 }

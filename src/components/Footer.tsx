@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ComplainLink } from "@/components/ComplainLink";
 import { PodcastLinks } from "@/components/PodcastLinks";
 import { SocialLinks } from "@/components/SocialLinks";
 import { SubscribeForm } from "@/components/SubscribeForm";
@@ -33,7 +34,7 @@ export function Footer() {
           >
             Contact
           </Link>
-          .
+          . <ComplainLink />
         </p>
       </div>
     </footer>

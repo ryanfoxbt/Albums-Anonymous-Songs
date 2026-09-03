@@ -102,6 +102,7 @@ export async function createSong(formData: FormData) {
         downloadUrl: audioUrl,
         coverImageUrl,
         durationSeconds: optionalInt(formData.get("durationSeconds")),
+        bpm: optionalInt(formData.get("bpm")),
         podcastEpisodeTitle: optionalString(
           formData.get("podcastEpisodeTitle"),
         ),
@@ -182,6 +183,7 @@ export async function updateSong(songId: string, formData: FormData) {
         downloadUrl: audioUrl,
         coverImageUrl,
         durationSeconds: optionalInt(formData.get("durationSeconds")),
+        bpm: optionalInt(formData.get("bpm")),
         podcastEpisodeTitle: optionalString(
           formData.get("podcastEpisodeTitle"),
         ),

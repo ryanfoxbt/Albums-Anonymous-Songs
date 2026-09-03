@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef } from "react";
 import { extractPeaks, type WaveformPeaks } from "./audioEngine";
 
 export type LoopRegion = { start: number; end: number }; // 0..1 fractions
+/** Beat grid, all as 0..1 fractions of the track: `offset` is the first beat,
+ *  `spacing` is one beat, `barBeats` bolds every Nth line as a downbeat. */
+export type BeatGrid = { offset: number; spacing: number; barBeats: number };
 
 type DragKind = "seek" | "cue" | "loopStart" | "loopEnd";
 
@@ -19,6 +22,7 @@ export function Waveform({
   cuePoint,
   loop,
   pendingLoopIn,
+  beatGrid,
   onCueChange,
   onLoopChange,
   disabled = false,
@@ -31,6 +35,8 @@ export function Waveform({
   cuePoint?: number | null;
   /** 0..1 start/end of the active loop, or null when no loop is set. */
   loop?: LoopRegion | null;
+  /** Beat grid to draw behind the waveform, or null when the BPM is unknown. */
+  beatGrid?: BeatGrid | null;
   /** 0..1 position of a half-set manual loop ("Loop In" pressed, "Out" pending). */
   pendingLoopIn?: number | null;
   /** Drag of the blue cue marker. `committed` is false while dragging, true on release. */
@@ -80,6 +86,26 @@ export function Waveform({
     }
     ctx.globalAlpha = 1;
 
+    if (beatGrid && beatGrid.spacing > 0) {
+      const { offset, spacing, barBeats } = beatGrid;
+      const beatPx = spacing * width;
+      // On a whole-track overview a full beat grid collapses into a grey wash,
+      // so thin it out: every beat only when there's room, otherwise just the
+      // bar lines, and nothing at all once even those would be too dense.
+      const everyN = beatPx >= 6 ? 1 : beatPx * barBeats >= 5 ? barBeats : 0;
+      if (everyN > 0) {
+        let beat = Math.ceil(-offset / spacing);
+        for (let x = offset + beat * spacing; x <= 1; x += spacing, beat++) {
+          if (((beat % everyN) + everyN) % everyN !== 0) continue;
+          const downbeat = ((beat % barBeats) + barBeats) % barBeats === 0;
+          ctx.fillStyle = downbeat
+            ? "rgba(128,128,128,0.42)"
+            : "rgba(128,128,128,0.16)";
+          ctx.fillRect(Math.round(x * width), 0, 1, height);
+        }
+      }
+    }
+
     // Small downward triangle drawn on top of a marker so it reads as grabbable.
     const cap = (x: number, color: string) => {
       ctx.fillStyle = color;
@@ -122,7 +148,7 @@ export function Waveform({
       ctx.fillStyle = "rgb(239 68 68)";
       ctx.fillRect(x, 0, 2, height);
     }
-  }, [progress, cuePoint, loop, pendingLoopIn]);
+  }, [progress, cuePoint, loop, pendingLoopIn, beatGrid]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

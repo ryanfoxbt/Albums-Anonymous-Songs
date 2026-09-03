@@ -2,13 +2,16 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import type { SaveSongBpmResult } from "@/app/(main)/admin/dj/actions";
 import { trackPodcastClick } from "@/lib/analyticsClient";
 import { getImpulseResponse, loadTrack } from "./audioEngine";
 import { FxToggle, MiniSlider } from "./controls";
 import { Turntable } from "./Turntable";
 import { DJ_DRAG_MIME, type DeckFx, type DjSong } from "./types";
 import { Waveform } from "./Waveform";
+
+function mod(a: number, m: number): number {
+  return ((a % m) + m) % m;
+}
 
 // Loop: default length (in beats, using the deck's BPM) for a freshly-set
 // loop, and the fallback (in raw seconds) when the deck's BPM is unknown.
@@ -19,6 +22,9 @@ const MIN_LOOP_SEC = 0.05;
 const LOOP_BEAT_PRESETS = [2, 4, 8, 16] as const;
 // Fine loop nudge: 1/16 of a beat when the BPM is known, else a flat 20 ms.
 const LOOP_NUDGE_FALLBACK_SEC = 0.02;
+// Beat-jump button sizes (beats), and how many beats the grid calls a bar.
+const BEAT_JUMP_SIZES = [4, 1] as const;
+const BAR_BEATS = 4;
 
 const FILTER_NEUTRAL_FREQ = 22050;
 const FILTER_MIN_LOWPASS = 150;
@@ -33,12 +39,6 @@ const EQ_MID_HZ = 1000;
 const EQ_HIGH_HZ = 3800;
 const EQ_MIN_DB = -24;
 const EQ_MAX_DB = 12;
-
-// Tap tempo: gap (ms) after which a new tap starts a fresh count, and the
-// plausible BPM window a tapped value has to land in to be accepted.
-const TAP_RESET_MS = 2000;
-const TAP_MIN_BPM = 40;
-const TAP_MAX_BPM = 300;
 
 /** Momentary actions the deck performs — reported so a recorder can log them.
  *  The imperative handle methods do the same things WITHOUT reporting (that's
@@ -65,9 +65,19 @@ export type DjDeckHandle = {
    *  0..1 fraction it places the cue there (the replay path passes the
    *  recorded position so a dragged cue lands where it was dragged). */
   setCueHere: (fraction?: number) => void;
+  /** Grid-snapping, reporting cue set — the keyboard-shortcut counterpart to
+   *  the Set Cue button (setCueHere is the raw replay path). */
+  setCueHereUser: () => void;
   clearCue: () => void;
   setLoop: (start: number, end: number) => void;
   exitLoop: () => void;
+  /** Toggle the one-tap loop / exit. Unlike most handle methods this DOES
+   *  report (via onAction) — it's a keyboard-shortcut entry point, and loops
+   *  replay from the recorded loopSet/loopExit events, not this call. */
+  toggleLoop: () => void;
+  /** Jump by whole beats (keyboard shortcut). Reports a seek, for the same
+   *  reason as toggleLoop. No-op when the BPM is unknown. */
+  beatJump: (beats: number) => void;
   triggerScratch: (pattern: "A" | "B" | "C") => void;
   /** For the record-start snapshot: is this deck's <audio> currently playing? */
   isPlaying: () => boolean;
@@ -76,9 +86,9 @@ export type DjDeckHandle = {
   /** Seeks to an absolute position, in native track-seconds (unlike `seek`,
    *  which takes a 0..1 fraction) — used for Sync's phase-alignment nudge. */
   seekSeconds: (t: number) => void;
-  /** This deck's current playhead and cue point, both in native track-seconds
-   *  — the two numbers Sync needs to compute a beat-phase offset. */
-  getBeatAnchor: () => { positionSec: number; cueSec: number } | null;
+  /** This deck's current playhead and beat-grid offset, both in native
+   *  track-seconds — the two numbers Sync needs to compute a beat-phase offset. */
+  getBeatAnchor: () => { positionSec: number; gridOffsetSec: number } | null;
   /** iOS: a gesture-initiated play()/pause() so this <audio> can be started
    *  programmatically later. Needed by the /mix replay, where one tap has to
    *  drive both decks over time and iOS otherwise blocks the deferred play(). */
@@ -166,11 +176,14 @@ export const DjDeck = forwardRef<
      *  computation lives in DjBoard, which can see both decks' state/refs. */
     onSyncRequest?: () => void;
     onDropSong: (songId: string) => void;
-    onBpmChange?: (bpm: number | null) => void;
+    /** Highlights this deck as the target of keyboard shortcuts. */
+    focused?: boolean;
+    /** Asks DjBoard to make this the keyboard-focused deck (on pointer-down). */
+    onFocusRequest?: () => void;
+    /** This deck is currently following the other one's tempo via Sync. */
+    syncActive?: boolean;
     /** Fires when this deck's track finishes playing on its own — drives Auto DJ handoff. */
     onEnded?: () => void;
-    /** Persists a tapped BPM onto the Song record (admin only). */
-    onSaveBpm?: (songId: string, bpm: number) => Promise<SaveSongBpmResult>;
     /** Controlled continuous/toggle FX state (lifted to DjBoard). */
     fx: DeckFx;
     onFx: (key: keyof DeckFx, value: number | boolean) => void;
@@ -192,13 +205,14 @@ export const DjDeck = forwardRef<
     otherSong,
     onSyncRequest,
     onDropSong,
-    onBpmChange,
     onEnded,
-    onSaveBpm,
     fx,
     onFx,
     onAction,
     disabled = false,
+    focused = false,
+    onFocusRequest,
+    syncActive = false,
   },
   ref,
 ) {
@@ -220,17 +234,18 @@ export const DjDeck = forwardRef<
   } | null>(null);
   const loadedSongIdRef = useRef<string | null>(null);
   const scratchStopRef = useRef<(() => void) | null>(null);
-  const tapTimesRef = useRef<number[]>([]);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
-  const [bpm, setBpm] = useState<number | null>(null);
-  const [savedBpm, setSavedBpm] = useState<number | null>(song?.bpm ?? null);
-  const [savingBpm, setSavingBpm] = useState(false);
-  const [justSavedBpm, setJustSavedBpm] = useState(false);
-  const [bpmError, setBpmError] = useState<string | null>(null);
-  const [tapCount, setTapCount] = useState(0);
+  // BPM is whatever's been set on the Song record in the admin panel — no
+  // detection, no tap-tempo. Null until an admin has entered one.
+  const bpm = song?.bpm ?? null;
+  // Seconds from track start to the first grid beat. Starts at the track
+  // start; the "Grid" button re-anchors it to the playhead by ear.
+  const [beatOffset, setBeatOffset] = useState(0);
+  // Snap cue / loop points / beat jumps to the grid.
+  const [quantize, setQuantize] = useState(true);
   const [cuePoint, setCuePoint] = useState(0);
   const [hasCue, setHasCue] = useState(false);
   const [loopRange, setLoopRange] = useState<Loop | null>(null);
@@ -248,12 +263,17 @@ export const DjDeck = forwardRef<
     seek: (fraction: number) => seekTo(fraction),
     jumpToCue: () => jumpToCue(),
     setCueHere: (fraction?: number) => setCueAt(fraction),
+    /** Keyboard entry point — behaves like the Set Cue button (grid-snaps
+     *  and reports), unlike setCueHere which is the raw replay path. */
+    setCueHereUser: () => handleSetCue(),
     clearCue: () => clearCue(),
     setLoop: (start, end) => setLoopRange({ start, end }),
     exitLoop: () => {
       setLoopRange(null);
       setLoopInPoint(null);
     },
+    toggleLoop: () => toggleLoop(),
+    beatJump: (beats) => beatJump(beats),
     triggerScratch: (pattern) => triggerScratch(pattern),
     isPlaying: () => !!audioRef.current && !audioRef.current.paused,
     currentPos: () => {
@@ -270,7 +290,7 @@ export const DjDeck = forwardRef<
     getBeatAnchor: () => {
       const audio = audioRef.current;
       if (!audio) return null;
-      return { positionSec: audio.currentTime, cueSec: cuePoint };
+      return { positionSec: audio.currentTime, gridOffsetSec: beatOffset };
     },
     primeAudio: () => {
       const audio = audioRef.current;
@@ -498,19 +518,8 @@ export const DjDeck = forwardRef<
     setLoopRange(null);
     setLoopInPoint(null);
     setDuration(0);
+    setBeatOffset(0);
     setBuffer(null);
-    tapTimesRef.current = [];
-    setTapCount(0);
-    setBpmError(null);
-    setJustSavedBpm(false);
-
-    // A previously-saved BPM on the record is the starting truth; the file's
-    // ID3 tag only fills in when there's no saved value yet.
-    const storedBpm = song.bpm ?? null;
-    setSavedBpm(storedBpm);
-    setBpm(storedBpm);
-    onBpmChange?.(storedBpm);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [song]);
 
   // Decode the track for the waveform + scratch buffer. Runs whenever there's a
@@ -521,21 +530,17 @@ export const DjDeck = forwardRef<
     const songId = song.id;
     let cancelled = false;
     loadTrack(audioCtx, song.audioUrl)
-      .then(({ buffer: buf, bpm: tagBpm }) => {
+      .then(({ buffer: buf }) => {
         if (cancelled || loadedSongIdRef.current !== songId) return;
         setBuffer(buf);
-        if (song.bpm == null && tagBpm != null) {
-          setBpm(tagBpm);
-          onBpmChange?.(tagBpm);
-        }
       })
       .catch(() => {
-        // Waveform/BPM are nice-to-haves; playback still works without them.
+        // The waveform is a nice-to-have; playback still works without it.
       });
     return () => {
       cancelled = true;
     };
-  }, [song, audioCtx, buffer, onBpmChange]);
+  }, [song, audioCtx, buffer]);
 
   // Stop any in-flight scratch gesture when the deck unmounts.
   useEffect(() => {
@@ -698,12 +703,10 @@ export const DjDeck = forwardRef<
     const audio = audioRef.current;
     if (!audio || !song || disabled) return;
     const dur = trackDuration();
-    setCuePoint(audio.currentTime);
+    const t = Math.max(0, snapToGrid(audio.currentTime));
+    setCuePoint(t);
     setHasCue(true);
-    onAction?.({
-      k: "cueSet",
-      pos: dur > 0 ? audio.currentTime / dur : undefined,
-    });
+    onAction?.({ k: "cueSet", pos: dur > 0 ? t / dur : undefined });
   }
 
   function handleClearCue() {
@@ -718,54 +721,39 @@ export const DjDeck = forwardRef<
     audio.currentTime = fraction * audio.duration;
   }
 
-  // Tap this in time with the track; the running average of the gaps between
-  // taps becomes the deck's BPM (which then also feeds Sync / beatmatching).
-  function registerTap() {
-    const now = performance.now();
-    const times = tapTimesRef.current;
-    if (times.length > 0 && now - times[times.length - 1] > TAP_RESET_MS) {
-      times.length = 0;
-    }
-    times.push(now);
-    if (times.length > 8) times.shift();
-    setTapCount(times.length);
-
-    if (times.length >= 2) {
-      const spans = times.slice(1).map((t, i) => t - times[i]);
-      const avgMs = spans.reduce((sum, s) => sum + s, 0) / spans.length;
-      const tapped = Math.round(60000 / avgMs);
-      if (Number.isFinite(tapped) && tapped >= TAP_MIN_BPM && tapped <= TAP_MAX_BPM) {
-        setBpm(tapped);
-        onBpmChange?.(tapped);
-        setBpmError(null);
-        setJustSavedBpm(false);
-      }
-    }
-  }
-
-  async function handleSaveBpm() {
-    if (!song || bpm == null || !onSaveBpm || savingBpm) return;
-    setSavingBpm(true);
-    setBpmError(null);
-    try {
-      const result = await onSaveBpm(song.id, bpm);
-      if (result.ok) {
-        setSavedBpm(result.bpm);
-        setJustSavedBpm(true);
-      } else {
-        setBpmError(result.error);
-      }
-    } catch {
-      setBpmError("Couldn't save BPM.");
-    } finally {
-      setSavingBpm(false);
-    }
-  }
-
-  const loopBeatLen = bpm && bpm > 0 ? 60 / bpm : null;
+  const beatLen = bpm && bpm > 0 ? 60 / bpm : null;
+  const loopBeatLen = beatLen;
 
   function loopBeatCount(l: Loop): number | null {
     return loopBeatLen ? Math.round((l.end - l.start) / loopBeatLen) : null;
+  }
+
+  // Round a time to the nearest grid beat when Quantize is on and a grid
+  // exists; otherwise pass it through untouched.
+  function snapToGrid(t: number): number {
+    if (!quantize || !beatLen) return t;
+    return beatOffset + Math.round((t - beatOffset) / beatLen) * beatLen;
+  }
+
+  // Re-anchor the beat grid so a downbeat lands on the current playhead.
+  function setGridHere() {
+    const audio = audioRef.current;
+    if (!audio || !beatLen || disabled) return;
+    setBeatOffset(mod(audio.currentTime, beatLen));
+  }
+
+  // Jump by whole beats without breaking stride. Re-snaps to the grid
+  // afterward (when quantizing) so repeated jumps stay locked even if the
+  // playhead started slightly off.
+  function beatJump(beats: number) {
+    const audio = audioRef.current;
+    if (!audio || !song || disabled || !beatLen) return;
+    const dur = trackDuration();
+    let t = audio.currentTime + beats * beatLen;
+    t = snapToGrid(t);
+    t = Math.max(0, dur > 0 ? Math.min(dur - 0.05, t) : t);
+    audio.currentTime = t;
+    onAction?.({ k: "seek", pos: dur > 0 ? t / dur : 0 });
   }
 
   // The prominent "Loop" button: a one-tap 4-beat loop from the playhead (or a
@@ -782,7 +770,8 @@ export const DjDeck = forwardRef<
     const len = loopBeatLen
       ? DEFAULT_LOOP_BEATS * loopBeatLen
       : DEFAULT_LOOP_FALLBACK_SEC;
-    commitLoop({ start: audio.currentTime, end: audio.currentTime + len });
+    const start = Math.max(0, snapToGrid(audio.currentTime));
+    commitLoop({ start, end: start + len });
   }
 
   function adjustLoopLength(factor: number) {
@@ -825,14 +814,15 @@ export const DjDeck = forwardRef<
   function setLoopIn() {
     const audio = audioRef.current;
     if (!audio || !song || disabled) return;
-    setLoopInPoint(audio.currentTime);
+    setLoopInPoint(Math.max(0, snapToGrid(audio.currentTime)));
   }
 
   function setLoopOut() {
     const audio = audioRef.current;
     if (!audio || loopInPoint == null || disabled) return;
-    const start = Math.min(loopInPoint, audio.currentTime);
-    const end = Math.max(loopInPoint, audio.currentTime);
+    const out = Math.max(0, snapToGrid(audio.currentTime));
+    const start = Math.min(loopInPoint, out);
+    const end = Math.max(loopInPoint, out);
     setLoopInPoint(null);
     commitLoop({ start, end });
   }
@@ -881,10 +871,13 @@ export const DjDeck = forwardRef<
       }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
+      onPointerDownCapture={() => !disabled && onFocusRequest?.()}
       className={`flex flex-col gap-2 rounded-2xl border p-3 transition-colors ${
         isDragOver
           ? "border-foreground bg-black/5 dark:bg-white/10"
-          : "border-black/10 dark:border-white/10"
+          : focused
+            ? "border-foreground/40 ring-1 ring-foreground/25"
+            : "border-black/10 dark:border-white/10"
       }`}
     >
       <audio
@@ -955,38 +948,59 @@ export const DjDeck = forwardRef<
         )}
         {song && (
           <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={registerTap}
-              disabled={disabled}
-              title="Tap in time with the beat to set this deck's BPM"
-              className="rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-black/60 hover:bg-black/10 disabled:opacity-40 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
-            >
-              {tapCount === 1 ? "Tap…" : bpm != null ? `${bpm} BPM` : "Tap tempo"}
-            </button>
-            {onSaveBpm && bpm != null && bpm !== savedBpm && (
-              <button
-                type="button"
-                onClick={handleSaveBpm}
-                disabled={savingBpm}
-                title="Save this BPM onto the song record"
-                className="rounded-full border border-foreground bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background disabled:opacity-50"
+            {bpm != null ? (
+              <span
+                title={
+                  tempo !== 1
+                    ? `${bpm} BPM · playing at ${(bpm * tempo).toFixed(1)}`
+                    : `${bpm} BPM (set in admin)`
+                }
+                className="rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60"
               >
-                {savingBpm ? "Saving…" : "Save"}
-              </button>
-            )}
-            {justSavedBpm && bpm === savedBpm && (
-              <span className="text-[10px] font-medium text-black/40 dark:text-white/40">
-                saved ✓
+                {tempo !== 1 ? `${(bpm * tempo).toFixed(1)} BPM` : `${bpm} BPM`}
               </span>
+            ) : (
+              <span
+                title="No BPM set for this track — Sync, the beat grid, Snap and beat jump need one (set it in the admin panel)"
+                className="rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium text-black/35 dark:bg-white/10 dark:text-white/35"
+              >
+                no BPM
+              </span>
+            )}
+            {bpm != null && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setQuantize((q) => !q)}
+                  disabled={disabled}
+                  aria-pressed={quantize}
+                  title={
+                    quantize
+                      ? "Snap is on — cue, loop and beat-jump land on the grid"
+                      : "Snap is off — cue and loop points land exactly where you set them"
+                  }
+                  className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold disabled:opacity-40 ${
+                    quantize
+                      ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                      : "border-black/15 text-black/50 dark:border-white/20 dark:text-white/50"
+                  }`}
+                >
+                  Snap
+                </button>
+                <button
+                  type="button"
+                  onClick={setGridHere}
+                  disabled={disabled}
+                  title="Re-anchor the beat grid so a downbeat sits on the playhead"
+                  className="rounded-full border border-black/15 px-1.5 py-0.5 text-[10px] font-medium text-black/50 hover:bg-black/5 disabled:opacity-40 dark:border-white/20 dark:text-white/50 dark:hover:bg-white/10"
+                >
+                  Grid
+                </button>
+              </>
             )}
           </div>
         )}
       </div>
-
-      {bpmError && (
-        <p className="text-[10px] font-medium text-red-600 dark:text-red-400">{bpmError}</p>
-      )}
 
       <div className="flex items-center gap-3">
         <Turntable song={song} isPlaying={isPlaying} tempo={tempo} />
@@ -1013,10 +1027,14 @@ export const DjDeck = forwardRef<
             type="button"
             onClick={() => onSyncRequest?.()}
             disabled={!song || !otherSong || disabled}
-            title={`Match tempo AND beat-align to Deck ${label === "A" ? "B" : "A"}${bpm && otherBpm ? " (full beatmatch)" : " (tempo only — tap in a BPM for both decks to align downbeats)"}`}
-            className={`${buttonClass} h-8`}
+            title={
+              syncActive
+                ? `Following Deck ${label === "A" ? "B" : "A"}'s tempo — click to release`
+                : `Match tempo (half/double-time aware) and beat-align to Deck ${label === "A" ? "B" : "A"}, then follow it${bpm && otherBpm ? "" : " — both decks need a BPM for the beat-align"}`
+            }
+            className={`${buttonClass} h-8 ${syncActive ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : ""}`}
           >
-            Sync
+            {syncActive ? "Synced" : "Sync"}
           </button>
           <button
             type="button"
@@ -1077,6 +1095,36 @@ export const DjDeck = forwardRef<
           </button>
         </div>
       </div>
+
+      {song && beatLen && (
+        <div className="-mt-1 flex items-center gap-1.5 text-[10px] text-black/45 dark:text-white/45">
+          <span>Beat jump</span>
+          {[...BEAT_JUMP_SIZES].map((b) => (
+            <button
+              key={`b-${b}`}
+              type="button"
+              onClick={() => beatJump(-b)}
+              disabled={disabled}
+              title={`Jump back ${b} beat${b === 1 ? "" : "s"}`}
+              className={`${buttonClass} h-6 w-8`}
+            >
+              «{b}
+            </button>
+          ))}
+          {[...BEAT_JUMP_SIZES].reverse().map((b) => (
+            <button
+              key={`f-${b}`}
+              type="button"
+              onClick={() => beatJump(b)}
+              disabled={disabled}
+              title={`Jump forward ${b} beat${b === 1 ? "" : "s"}`}
+              className={`${buttonClass} h-6 w-8`}
+            >
+              {b}»
+            </button>
+          ))}
+        </div>
+      )}
 
       {hasCue && (
         <div className="-mt-1 flex items-center gap-2 text-[10px] text-black/45 dark:text-white/45">
@@ -1194,6 +1242,15 @@ export const DjDeck = forwardRef<
         pendingLoopIn={
           loopInPoint != null && trackDuration() > 0
             ? loopInPoint / trackDuration()
+            : null
+        }
+        beatGrid={
+          beatLen && trackDuration() > 0
+            ? {
+                offset: mod(beatOffset, beatLen) / trackDuration(),
+                spacing: beatLen / trackDuration(),
+                barBeats: BAR_BEATS,
+              }
             : null
         }
         onCueChange={disabled ? undefined : handleCueDrag}

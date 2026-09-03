@@ -37,102 +37,24 @@ export function extractPeaks(buffer: AudioBuffer, columns: number): WaveformPeak
   return { min, max };
 }
 
-function readSyncSafeInt(bytes: Uint8Array, offset: number): number {
-  return (
-    ((bytes[offset] & 0x7f) << 21) |
-    ((bytes[offset + 1] & 0x7f) << 14) |
-    ((bytes[offset + 2] & 0x7f) << 7) |
-    (bytes[offset + 3] & 0x7f)
-  );
-}
-
-function readUInt32BE(bytes: Uint8Array, offset: number): number {
-  return (
-    ((bytes[offset] << 24) |
-      (bytes[offset + 1] << 16) |
-      (bytes[offset + 2] << 8) |
-      bytes[offset + 3]) >>>
-    0
-  );
-}
-
-function decodeId3Text(bytes: Uint8Array, encoding: number): string {
-  try {
-    if (encoding === 1) return new TextDecoder("utf-16").decode(bytes);
-    if (encoding === 2) return new TextDecoder("utf-16be").decode(bytes);
-    if (encoding === 3) return new TextDecoder("utf-8").decode(bytes);
-    return new TextDecoder("latin1").decode(bytes);
-  } catch {
-    return "";
-  }
-}
-
-/**
- * Reads the BPM straight out of the file's ID3v2 TBPM tag, when the file
- * has one — real metadata, not a guess. Most casual uploads won't have
- * this tag set, in which case this returns null (rather than estimating,
- * since a rough audio-analysis guess turned out unreliable enough to be
- * misleading for these tracks).
- */
-function parseId3Bpm(data: ArrayBuffer): number | null {
-  if (data.byteLength < 10) return null;
-  const bytes = new Uint8Array(data, 0, Math.min(data.byteLength, 2_000_000));
-  if (bytes[0] !== 0x49 || bytes[1] !== 0x44 || bytes[2] !== 0x33) return null; // "ID3"
-  const majorVersion = bytes[3];
-  if (majorVersion < 3) return null; // ID3v2.2's 3-char frame ids aren't handled
-
-  const tagSize = readSyncSafeInt(bytes, 6);
-  const tagEnd = Math.min(bytes.length, 10 + tagSize);
-
-  let offset = 10;
-  while (offset + 10 <= tagEnd) {
-    const frameId = String.fromCharCode(
-      bytes[offset],
-      bytes[offset + 1],
-      bytes[offset + 2],
-      bytes[offset + 3],
-    );
-    if (frameId === "\0\0\0\0") break;
-    const frameSize =
-      majorVersion >= 4 ? readSyncSafeInt(bytes, offset + 4) : readUInt32BE(bytes, offset + 4);
-    if (frameSize <= 0 || offset + 10 + frameSize > tagEnd) break;
-
-    if (frameId === "TBPM") {
-      const encoding = bytes[offset + 10];
-      const textBytes = bytes.slice(offset + 11, offset + 10 + frameSize);
-      const text = decodeId3Text(textBytes, encoding)
-        .replace(/\0/g, "")
-        .trim();
-      const bpm = Math.round(Number.parseFloat(text));
-      return Number.isFinite(bpm) && bpm > 0 ? bpm : null;
-    }
-
-    offset += 10 + frameSize;
-  }
-  return null;
-}
-
-const trackCache = new Map<string, Promise<{ buffer: AudioBuffer; bpm: number | null }>>();
+const trackCache = new Map<string, Promise<{ buffer: AudioBuffer }>>();
 
 /**
  * Fetches + decodes a song's audio once per URL (caching the in-flight/
- * settled promise), reading its ID3 BPM tag from the same download along
- * the way.
+ * settled promise). BPM is not read here — it comes from the Song record,
+ * set by hand in the admin panel.
  */
 export function loadTrack(
   ctx: AudioContext,
   url: string,
-): Promise<{ buffer: AudioBuffer; bpm: number | null }> {
+): Promise<{ buffer: AudioBuffer }> {
   const cached = trackCache.get(url);
   if (cached) return cached;
 
   const promise = fetch(url)
     .then((res) => res.arrayBuffer())
-    .then((data) => {
-      const bpm = parseId3Bpm(data);
-      // decodeAudioData detaches its input buffer, so BPM must be read first.
-      return ctx.decodeAudioData(data).then((buffer) => ({ buffer, bpm }));
-    });
+    .then((data) => ctx.decodeAudioData(data))
+    .then((buffer) => ({ buffer }));
 
   promise.catch(() => trackCache.delete(url));
   trackCache.set(url, promise);

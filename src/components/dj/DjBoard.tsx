@@ -13,13 +13,24 @@ import { DjDeck, type DeckAction, type DjDeckHandle } from "./DjDeck";
 import { SongBrowser } from "./SongBrowser";
 import { DEFAULT_DECK_FX, type DeckFx, type DjSong } from "./types";
 import type { DeckId, RawMixEvent } from "./mixTypes";
-import type { SaveSongBpmResult } from "@/app/(main)/admin/dj/actions";
 
 const AUTO_DJ_TRANSITION_MS = 5000;
 const STORAGE_KEY = "dj-board-state-v1";
 
 function mod(a: number, m: number): number {
   return ((a % m) + m) % m;
+}
+
+// Fold a tempo ratio by octaves into the window around 1× where two tracks
+// count as the same pulse, so a 174-BPM track syncs to an 87-BPM one at 100%
+// rather than being dragged to half speed. Bounds are the geometric midpoints
+// (1/√2 … √2), then a hard clamp to the tempo slider's range.
+function foldTempoRatio(ratio: number): number {
+  if (!Number.isFinite(ratio) || ratio <= 0) return 1;
+  let r = ratio;
+  while (r < Math.SQRT1_2) r *= 2;
+  while (r >= Math.SQRT2) r /= 2;
+  return Math.min(1.5, Math.max(0.5, r));
 }
 
 // Only the loaded tracks are restored across a refresh. The crossfader stays
@@ -48,15 +59,26 @@ export const DjBoard = forwardRef<
   DjBoardHandle,
   {
     songs: DjSong[];
-    onSaveBpm?: (songId: string, bpm: number) => Promise<SaveSongBpmResult>;
     mode?: DjBoardMode;
     /** Live-recording sink. Called for every user (or Auto DJ) control change. */
     onEvent?: (event: RawMixEvent) => void;
     /** Reports the crossfader-dominant deck's BPM (for the dancer's groove). */
     onGrooveChange?: (bpm: number | null) => void;
+    /** When the Kall of Booty dancer is up it owns the keyboard, so the deck
+     *  shortcuts stand down. */
+    dancerActive?: boolean;
+    /** Show the Listed/Unlisted filter in the song browser (admin booth). */
+    allowUnlisted?: boolean;
   }
 >(function DjBoard(
-  { songs, onSaveBpm, mode = "live", onEvent, onGrooveChange },
+  {
+    songs,
+    mode = "live",
+    onEvent,
+    onGrooveChange,
+    dancerActive,
+    allowUnlisted = false,
+  },
   ref,
 ) {
   const isPlayback = mode === "playback";
@@ -66,12 +88,17 @@ export const DjBoard = forwardRef<
   const [deckBSong, setDeckBSong] = useState<DjSong | null>(null);
   const [tempoA, setTempoA] = useState(1);
   const [tempoB, setTempoB] = useState(1);
-  const [bpmA, setBpmA] = useState<number | null>(null);
-  const [bpmB, setBpmB] = useState<number | null>(null);
+  // BPM is a fixed value on the Song record, set by hand in the admin panel.
+  const bpmA = deckASong?.bpm ?? null;
+  const bpmB = deckBSong?.bpm ?? null;
   const [fxA, setFxA] = useState<DeckFx>(DEFAULT_DECK_FX);
   const [fxB, setFxB] = useState<DeckFx>(DEFAULT_DECK_FX);
   const [crossfader, setCrossfader] = useState(0.5);
   const [autoDj, setAutoDj] = useState(false);
+  // Which deck the keyboard shortcuts act on (live mode).
+  const [focusedDeck, setFocusedDeck] = useState<DeckId>("A");
+  // The deck currently following the other one's tempo via Sync (null = none).
+  const [syncedDeck, setSyncedDeck] = useState<DeckId | null>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [audioCtx, setAudioCtx] = useState<AudioContext | null>(null);
@@ -91,6 +118,18 @@ export const DjBoard = forwardRef<
   useEffect(() => {
     crossfaderRef.current = crossfader;
   }, [crossfader]);
+  const focusedDeckRef = useRef(focusedDeck);
+  useEffect(() => {
+    focusedDeckRef.current = focusedDeck;
+  }, [focusedDeck]);
+  const syncedDeckRef = useRef(syncedDeck);
+  useEffect(() => {
+    syncedDeckRef.current = syncedDeck;
+  }, [syncedDeck]);
+  const dancerActiveRef = useRef(dancerActive);
+  useEffect(() => {
+    dancerActiveRef.current = dancerActive;
+  }, [dancerActive]);
 
   // Report the "dominant" BPM — whichever deck the crossfader favours, falling
   // back to the other. Drives the dancer's tempo-locked groove.
@@ -145,6 +184,7 @@ export const DjBoard = forwardRef<
       setFxB(DEFAULT_DECK_FX);
       setTempoB(1);
     }
+    setSyncedDeck(null); // a fresh track breaks any tempo lock
     emit({ k: "load", deck, songId });
   }
 
@@ -153,9 +193,12 @@ export const DjBoard = forwardRef<
     emit({ k: "crossfader", v });
   }
 
-  function changeTempo(deck: DeckId, v: number) {
+  function changeTempo(deck: DeckId, v: number, fromSync = false) {
     if (deck === "A") setTempoA(v);
     else setTempoB(v);
+    // A hand-moved tempo on the synced deck releases the lock (matches how a
+    // real Sync drops out when you touch the pitch fader).
+    if (!fromSync && syncedDeckRef.current === deck) setSyncedDeck(null);
     emit({ k: "tempo", deck, v });
   }
 
@@ -185,49 +228,69 @@ export const DjBoard = forwardRef<
     emit({ k: "pause", deck });
   }
 
-  // Sync: beatmatch this deck's tempo to the other deck's, then — when both
-  // BPMs are known — nudge the playhead so the downbeats actually line up.
-  // Tempo alone gets two tracks to the same speed; DJs still need the beats
-  // to land together, which is the part a naive "copy the other tempo"
-  // button skips.
+  // Sync: match this deck's tempo to the other's (octave-aware), align the
+  // downbeats, and latch — the deck then follows the other one's tempo until
+  // Sync is pressed again or its pitch is moved by hand. Pressing Sync on the
+  // deck that's already synced releases it.
   function syncDeck(deck: DeckId) {
+    if (syncedDeckRef.current === deck) {
+      setSyncedDeck(null);
+      return;
+    }
+
     const thisBpm = deck === "A" ? bpmA : bpmB;
     const otherBpm = deck === "A" ? bpmB : bpmA;
     const otherTempo = deck === "A" ? tempoB : tempoA;
-    if (!thisBpm) {
-      changeTempo(deck, otherTempo);
+
+    if (!thisBpm || !otherBpm) {
+      // Without both BPMs there's nothing to lock to — copy the other deck's
+      // pitch as a rough start and leave Sync off.
+      if (thisBpm == null) changeTempo(deck, otherTempo);
       return;
     }
-    const target = otherBpm
-      ? Math.min(1.5, Math.max(0.5, (otherBpm * otherTempo) / thisBpm))
-      : otherTempo;
-    changeTempo(deck, target);
-    if (!otherBpm) return;
 
+    const target = foldTempoRatio((otherBpm * otherTempo) / thisBpm);
+    changeTempo(deck, target, true);
+    setSyncedDeck(deck);
+
+    // Phase-align the downbeats. Work in real (wall-clock) seconds so the
+    // octave-folded tempo falls out naturally: `mod(otherPhase, thisBeat)`
+    // maps a slower master beat onto whichever of the faster follower beats
+    // it should sit on.
     const thisHandle = deckRefFor(deck).current;
     const otherHandle = deckRefFor(deck === "A" ? "B" : "A").current;
-    const thisAnchor = thisHandle?.getBeatAnchor();
-    const otherAnchor = otherHandle?.getBeatAnchor();
-    if (!thisHandle || !thisAnchor || !otherAnchor) return;
+    const a = thisHandle?.getBeatAnchor();
+    const b = otherHandle?.getBeatAnchor();
+    if (!thisHandle || !a || !b) return;
 
-    // Native beat length (in each track's own currentTime units — this
-    // doesn't change with playbackRate, since currentTime always advances
-    // in the source material's own timeline).
-    const thisBeat = 60 / thisBpm;
-    const otherBeat = 60 / otherBpm;
-    const otherPhase = mod(otherAnchor.positionSec - otherAnchor.cueSec, otherBeat);
-    // Rescale the other deck's beat-phase into this deck's beat grid, at the
-    // rate this deck is about to play at relative to the other's.
-    const rateRatio = target / otherTempo;
-    const targetPhase = mod(otherPhase * rateRatio, thisBeat);
-    const currentPhase = mod(thisAnchor.positionSec - thisAnchor.cueSec, thisBeat);
-    let delta = targetPhase - currentPhase;
-    delta = mod(delta + thisBeat / 2, thisBeat) - thisBeat / 2; // shortest nudge
-    const newPos = Math.max(0, thisAnchor.positionSec + delta);
+    const tbThis = 60 / thisBpm / target; // follower's sounding beat (real sec)
+    const tbOther = 60 / otherBpm / otherTempo; // master's sounding beat
+    const pOther = mod((b.positionSec - b.gridOffsetSec) / otherTempo, tbOther);
+    const pThis = mod((a.positionSec - a.gridOffsetSec) / target, tbThis);
+    let dReal = mod(pOther, tbThis) - pThis;
+    dReal = mod(dReal + tbThis / 2, tbThis) - tbThis / 2; // shortest nudge
+    const newPos = Math.max(0, a.positionSec + dReal * target); // real → track sec
 
     thisHandle.seekSeconds(newPos);
     emit({ k: "seek", deck, pos: thisHandle.currentPos() });
   }
+
+  // While a deck is synced, keep its tempo tracking the master's — so nudging
+  // the master's pitch fader carries the follower along. Live board only;
+  // replay just re-applies the recorded tempo events.
+  useEffect(() => {
+    if (isPlayback || !syncedDeck) return;
+    const followerBpm = syncedDeck === "A" ? bpmA : bpmB;
+    const otherBpm = syncedDeck === "A" ? bpmB : bpmA;
+    if (!followerBpm || !otherBpm) return;
+    const otherTempo = syncedDeck === "A" ? tempoB : tempoA;
+    const followerTempo = syncedDeck === "A" ? tempoA : tempoB;
+    const target = foldTempoRatio((otherBpm * otherTempo) / followerBpm);
+    if (Math.abs(target - followerTempo) > 0.0015) {
+      changeTempo(syncedDeck, target, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tempoA, tempoB, bpmA, bpmB, syncedDeck, isPlayback]);
 
   // The single "2x Play" button: sends both decks back to their cue points
   // (start of track if none was set) and starts them together.
@@ -240,6 +303,98 @@ export const DjBoard = forwardRef<
       deckPlay(deck);
     });
   }
+
+  function toggleDeckPlay(deck: DeckId) {
+    if (deckRefFor(deck).current?.isPlaying()) deckPause(deck);
+    else deckPlay(deck);
+  }
+
+  // Keyboard shortcuts (live board only). The handler lives in a ref that's
+  // refreshed every render so it always sees current state, while the actual
+  // window listener is attached just once.
+  const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  useEffect(() => {
+    onKeyRef.current = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (dancerActiveRef.current) return; // the dancer owns the keyboard
+      const el = e.target;
+      if (
+        el instanceof HTMLElement &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT" ||
+          el.isContentEditable)
+      ) {
+        return;
+      }
+
+      const f = focusedDeckRef.current;
+      const other: DeckId = f === "A" ? "B" : "A";
+      const clampX = (v: number) => Math.min(1, Math.max(0, v));
+
+      switch (e.key) {
+        case "1":
+          setFocusedDeck("A");
+          break;
+        case "2":
+          setFocusedDeck("B");
+          break;
+        case "a":
+          toggleDeckPlay(f);
+          break;
+        case "A":
+          toggleDeckPlay(other);
+          break;
+        case "c":
+          deckRefFor(f).current?.jumpToCue();
+          emit({ k: "cue", deck: f });
+          break;
+        case "x":
+          deckRefFor(f).current?.setCueHereUser();
+          break;
+        case "s":
+          syncDeck(f);
+          break;
+        case "d":
+          deckRefFor(f).current?.toggleLoop();
+          break;
+        // Shift+[ arrives as "{" (and Shift+] as "}"), so the shifted keys
+        // double as the ±4-beat jumps.
+        case "[":
+        case "{":
+          deckRefFor(f).current?.beatJump(e.shiftKey ? -4 : -1);
+          break;
+        case "]":
+        case "}":
+          deckRefFor(f).current?.beatJump(e.shiftKey ? 4 : 1);
+          break;
+        case ",":
+          changeCrossfader(clampX(crossfaderRef.current - 0.05));
+          break;
+        case ".":
+          changeCrossfader(clampX(crossfaderRef.current + 0.05));
+          break;
+        case "ArrowLeft":
+          changeCrossfader(clampX(crossfaderRef.current - 0.1));
+          break;
+        case "ArrowRight":
+          changeCrossfader(clampX(crossfaderRef.current + 0.1));
+          break;
+        case "m":
+          changeCrossfader(0.5);
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+    };
+  });
+  useEffect(() => {
+    if (isPlayback) return;
+    const listener = (e: KeyboardEvent) => onKeyRef.current(e);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, [isPlayback]);
 
   // DjDeck already performed the audio side of a momentary action; the board
   // only needs to log it (with the deck attached).
@@ -501,13 +656,14 @@ export const DjBoard = forwardRef<
             otherSong={deckBSong}
             onSyncRequest={() => syncDeck("A")}
             onDropSong={(id) => loadSong("A", id)}
-            onBpmChange={setBpmA}
             onEnded={() => handleDeckEnded("A")}
-            onSaveBpm={onSaveBpm}
             fx={fxA}
             onFx={(key, value) => changeFx("A", key, value)}
             onAction={(a) => handleDeckAction("A", a)}
             disabled={isPlayback}
+            focused={!isPlayback && focusedDeck === "A"}
+            onFocusRequest={() => setFocusedDeck("A")}
+            syncActive={!isPlayback && syncedDeck === "A"}
           />
           <DjDeck
             ref={deckBRef}
@@ -522,13 +678,14 @@ export const DjBoard = forwardRef<
             otherSong={deckASong}
             onSyncRequest={() => syncDeck("B")}
             onDropSong={(id) => loadSong("B", id)}
-            onBpmChange={setBpmB}
             onEnded={() => handleDeckEnded("B")}
-            onSaveBpm={onSaveBpm}
             fx={fxB}
             onFx={(key, value) => changeFx("B", key, value)}
             onAction={(a) => handleDeckAction("B", a)}
             disabled={isPlayback}
+            focused={!isPlayback && focusedDeck === "B"}
+            onFocusRequest={() => setFocusedDeck("B")}
+            syncActive={!isPlayback && syncedDeck === "B"}
           />
         </div>
 
@@ -584,11 +741,48 @@ export const DjBoard = forwardRef<
             </p>
           )}
         </div>
+
+        {!isPlayback && (
+          <details className="rounded-2xl border border-black/10 px-3 py-2 text-[11px] text-black/60 [&_kbd]:rounded [&_kbd]:border [&_kbd]:border-black/20 [&_kbd]:bg-black/5 [&_kbd]:px-1 [&_kbd]:font-mono [&_kbd]:text-[10px] dark:border-white/10 dark:text-white/60 dark:[&_kbd]:border-white/20 dark:[&_kbd]:bg-white/10">
+            <summary className="cursor-pointer select-none font-medium">
+              ⌨ Keyboard shortcuts
+            </summary>
+            <div className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-2">
+              <span>
+                <kbd>1</kbd> / <kbd>2</kbd> — focus Deck A / B (click a deck too)
+              </span>
+              <span>
+                <kbd>a</kbd> play / pause · <kbd>shift</kbd>+<kbd>a</kbd> the other
+                deck
+              </span>
+              <span>
+                <kbd>c</kbd> cue · <kbd>x</kbd> set cue · <kbd>s</kbd> sync
+              </span>
+              <span>
+                <kbd>d</kbd> loop · <kbd>[</kbd> / <kbd>]</kbd> beat jump (
+                <kbd>shift</kbd> = 4)
+              </span>
+              <span>
+                <kbd>,</kbd> / <kbd>.</kbd> crossfader · <kbd>m</kbd> centre
+              </span>
+              <span>
+                <kbd>←</kbd> / <kbd>→</kbd> crossfader (bigger step)
+              </span>
+            </div>
+            <p className="mt-2 text-black/40 dark:text-white/40">
+              Shortcuts pause while the 🍑 dancer is up — it takes the keyboard.
+            </p>
+          </details>
+        )}
       </div>
 
       {!isPlayback && (
         <div className="flex min-h-0 flex-col gap-4 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:w-72 lg:shrink-0">
-          <SongBrowser songs={songs} onLoad={loadSong} />
+          <SongBrowser
+            songs={songs}
+            onLoad={loadSong}
+            allowUnlisted={allowUnlisted}
+          />
         </div>
       )}
     </div>

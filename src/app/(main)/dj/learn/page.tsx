@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 const title = "Learn to DJ Online Free — Browser DJ Booth, No Download";
 const description =
-  "Learn to DJ in your browser for free — no software, no download, no login to play. Practice beatmatching, crossfading, EQ, filters and scratching on real decks using Albums Anonymous comedy songs, then record and share your mix.";
+  "Learn to DJ in your browser for free — no software, no download, no login. Practice beatmatching, crossfading, EQ, filters and scratching on real decks using Albums Anonymous comedy songs, then record and share your mix with one link.";
 
 export const metadata: Metadata = {
   title,
@@ -32,11 +32,11 @@ const STEPS: { name: string; text: string }[] = [
   },
   {
     name: "Start Deck A and find the beat",
-    text: "Press play on Deck A. Tap the tempo button in time with the kick to set its BPM, or trust the detected value. Knowing both decks' BPM is what lets you beatmatch.",
+    text: "Press play on Deck A. Tracks that have a BPM set show it on the deck, along with a beat grid on the waveform; use the Grid button to re-anchor that grid so a downbeat sits exactly on the playhead.",
   },
   {
     name: "Beatmatch Deck B",
-    text: "Cue Deck B, hit Sync (or nudge the Tempo slider) until its BPM matches Deck A — with both decks' BPM known, Sync also snaps the downbeats into alignment, not just the tempo.",
+    text: "With a BPM on both tracks, cue Deck B and hit Sync. It matches Deck B's tempo to Deck A (treating half- and double-time as already matched — 90 syncs to 180), lines up the downbeats, and stays locked: nudge Deck A's pitch afterwards and Deck B follows. Both BPM readouts show the same number when they're locked. Use beat jump to slide the phrasing by hand.",
   },
   {
     name: "Blend with the crossfader",
@@ -48,7 +48,7 @@ const STEPS: { name: string; text: string }[] = [
   },
   {
     name: "Record and share your set",
-    text: "Hit Record, mix for up to three minutes, then Stop. You get a link your friends can open to hear the mix and watch every fader, knob and scratch move exactly how you played it.",
+    text: "Hit Record, mix for up to three minutes, then Stop. You get a link — no email, no login — that your friends can open to hear the mix and watch every fader, knob and scratch move exactly how you played it.",
   },
 ];
 
@@ -63,11 +63,27 @@ const TERMS: { term: string; def: string }[] = [
   },
   {
     term: "Beatmatching",
-    def: "Adjusting one deck's tempo so its beats line up with the other deck's, so the two tracks can play together without clashing. Sync does both halves at once — it matches the BPM and nudges the playhead so the downbeats land together.",
+    def: "Adjusting one deck's tempo so its beats line up with the other deck's, so the two tracks can play together without clashing. A track at 90 BPM already matches one at 180 — same pulse, counted twice — so a big BPM gap on paper doesn't always mean a real one.",
+  },
+  {
+    term: "Sync",
+    def: "One button that beatmatches for you: it matches the deck's tempo to the other one (half- and double-time count as matched), slides the playhead so the downbeats coincide, then latches — while it's lit, the deck keeps following the other deck's tempo. Moving that deck's pitch fader by hand releases it. Both tracks need a BPM set for it to work.",
   },
   {
     term: "BPM",
-    def: "Beats per minute — a track's tempo. Two tracks at the same BPM are far easier to blend. Tap the tempo button in time with the beat to measure it.",
+    def: "Beats per minute — a track's tempo. Each song carries a fixed BPM, and the deck shows it (the number reflects the current pitch, so it reads the real playing tempo). Not every track has one set yet; without it, Sync, the beat grid, Snap and beat jump sit out.",
+  },
+  {
+    term: "Beat grid",
+    def: "The set of faint vertical lines on the waveform marking every beat, with a brighter line on each bar's downbeat. It's drawn from the track's BPM; the Grid button re-anchors it so a downbeat sits exactly on the playhead. Sync, Quantize and beat jump all work off this grid.",
+  },
+  {
+    term: "Quantize (Snap)",
+    def: "When Snap is on, setting a cue, dropping a loop point or jumping by beats lands exactly on the nearest grid line instead of wherever your click happened to fall — so everything stays locked to the beat. Turn it off for hand-placed points.",
+  },
+  {
+    term: "Beat jump",
+    def: "Skips the playhead forward or back by a whole number of beats (1 or 4) without stopping the track — the quickest way to shuffle one deck's phrasing into line with the other, or to rewind a bar and try a blend again.",
   },
   {
     term: "Cue",
@@ -102,7 +118,7 @@ const TERMS: { term: string; def: string }[] = [
 const FAQ: { q: string; a: string }[] = [
   {
     q: "Is it really free to learn to DJ here?",
-    a: "Yes. The DJ booth is free to use with no account and no download. You only give an email if you want to save and share a mix.",
+    a: "Yes. The DJ booth is free to use with no account, no download and no login — including recording a mix and sharing the link.",
   },
   {
     q: "Do I need any experience?",
@@ -118,7 +134,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How do I share a mix I made?",
-    a: "Press Record in the booth, play your set (up to three minutes), then Stop. After a one-time email, you get a link. Opening it replays your mix in the browser with every control moving as you left it.",
+    a: "Press Record in the booth, play your set (up to three minutes), then Stop. You get a link right away — no email, no login. Opening it replays your mix in the browser with every control moving as you left it.",
   },
   {
     q: "Does it work on a phone?",
@@ -217,13 +233,19 @@ export default function LearnToDjPage() {
           <ul className="list-disc space-y-1.5 pl-5 text-sm text-black/80 dark:text-white/80">
             <li>Run two independent decks and blend between them live</li>
             <li>
-              Beatmatch with tap-tempo, detected BPM and a Sync button that
-              lines up both the tempo and the downbeats
+              Beatmatch with per-track BPM and beat grids, and a Sync button
+              that matches tempo (half/double-time aware), lines up the
+              downbeats, and stays locked
+            </li>
+            <li>
+              Nudge a track a beat at a time with beat jump, and snap cues and
+              loops to the grid with Quantize
             </li>
             <li>
               Drop a draggable cue point and a beat-accurate loop — caught by
               ear or snapped to 2 / 4 / 8 / 16 beats — on either deck
             </li>
+            <li>Drive both decks from the keyboard — focus, play, cue, sync, beat jump</li>
             <li>Shape each track with a 3-band EQ and a sweepable filter</li>
             <li>Drop in echo, reverb and flanger as send effects</li>
             <li>Trigger baby, scribble and transformer scratches</li>

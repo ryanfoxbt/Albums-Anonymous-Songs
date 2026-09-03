@@ -1,15 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EmailGateDialog } from "@/components/EmailGateDialog";
-import { isEmailUnlocked } from "@/lib/emailGate";
+import { FEATURES } from "@/lib/features";
 import { DjBoard, type DjBoardHandle } from "./DjBoard";
 import { MixRecorder } from "./MixRecorder";
 import { MIX_MAX_MS, type RawMixEvent } from "./mixTypes";
 import { DANCER_HINT, StickDancer, type StickDancerHandle } from "./StickDancer";
 import type { DjSong } from "./types";
 
-type Status = "idle" | "recording" | "gate" | "saving" | "done" | "error";
+type Status = "idle" | "recording" | "saving" | "done" | "error";
 
 type PendingMix = {
   songIds: string[];
@@ -100,11 +99,7 @@ export function DjStudio({ songs }: { songs: DjSong[] }) {
       return;
     }
     pendingRef.current = mix;
-    if (isEmailUnlocked()) {
-      void submit(mix);
-    } else {
-      setStatus("gate");
-    }
+    void submit(mix);
   }, [recorder, submit]);
 
   // Timer + auto-stop while recording.
@@ -264,7 +259,7 @@ export function DjStudio({ songs }: { songs: DjSong[] }) {
               Record my set
             </button>
             <span className="text-xs text-black/50 dark:text-white/50">
-              Up to {fmt(MIX_MAX_MS)}. Sharing asks for an email — playing never does.
+              Up to {fmt(MIX_MAX_MS)}. Free to share — no email, no login.
             </span>
           </>
         )}
@@ -297,6 +292,8 @@ export function DjStudio({ songs }: { songs: DjSong[] }) {
         mode="live"
         onEvent={handleEvent}
         onGrooveChange={setGrooveBpm}
+        dancerActive={dancerOn}
+        allowUnlisted={FEATURES.djUnlistedFilter}
       />
 
       {dancerOn && (
@@ -306,17 +303,6 @@ export function DjStudio({ songs }: { songs: DjSong[] }) {
           onEvent={(e) => recorder.record(e)}
         />
       )}
-
-      <EmailGateDialog
-        open={status === "gate"}
-        reason="mix"
-        onClose={() => setStatus("idle")}
-        onUnlocked={() => {
-          const mix = pendingRef.current;
-          if (mix) void submit(mix);
-          else setStatus("idle");
-        }}
-      />
     </div>
   );
 }

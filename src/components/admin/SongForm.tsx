@@ -30,6 +30,7 @@ export function SongForm({
     audioUrl: string;
     coverImageUrl?: string | null;
     durationSeconds: number | null;
+    bpm: number | null;
     podcastEpisodeTitle: string | null;
     podcastEpisodeUrl: string | null;
     firstHeardOnEpisode: number | null;
@@ -293,18 +294,37 @@ export function SongForm({
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className={labelClass} htmlFor="durationSeconds">
-          Duration (seconds, optional)
-        </label>
-        <input
-          id="durationSeconds"
-          name="durationSeconds"
-          type="number"
-          min={0}
-          defaultValue={song?.durationSeconds ?? undefined}
-          className={fieldClass}
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1">
+          <label className={labelClass} htmlFor="durationSeconds">
+            Duration (seconds, optional)
+          </label>
+          <input
+            id="durationSeconds"
+            name="durationSeconds"
+            type="number"
+            min={0}
+            defaultValue={song?.durationSeconds ?? undefined}
+            className={fieldClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass} htmlFor="bpm">
+            BPM (optional — powers Sync &amp; the beat grid in the DJ booth)
+          </label>
+          <input
+            id="bpm"
+            name="bpm"
+            type="number"
+            min={40}
+            max={300}
+            step={1}
+            defaultValue={song?.bpm ?? undefined}
+            placeholder="e.g. 128"
+            className={fieldClass}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1">

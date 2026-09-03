@@ -115,10 +115,6 @@ export function ComplainLink({ className }: { className?: string }) {
               >
                 Complain about anything
               </p>
-              <p className="mt-1 text-sm text-black/60 dark:text-white/60">
-                A bug, a bad take, the merch, the hosts — whatever it is, it
-                lands in our inbox. No email or login needed.
-              </p>
 
               {status === "done" ? (
                 <div className="mt-4 flex flex-col gap-3">
@@ -149,8 +145,7 @@ export function ComplainLink({ className }: { className?: string }) {
                     maxLength={MAX}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="What's the problem?"
-                    className="w-full resize-y rounded-xl border border-black/15 bg-background px-3 py-2 text-sm placeholder:text-black/30 dark:border-white/20 dark:placeholder:text-white/30"
+                    className="w-full resize-y rounded-xl border border-black/15 bg-background px-3 py-2 text-sm dark:border-white/20"
                   />
                   <input
                     type="text"

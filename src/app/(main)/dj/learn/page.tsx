@@ -36,7 +36,7 @@ const STEPS: { name: string; text: string }[] = [
   },
   {
     name: "Beatmatch Deck B",
-    text: "Cue Deck B, hit Sync (or nudge the Tempo slider) until its BPM matches Deck A, so the two tracks run in step instead of drifting apart.",
+    text: "Cue Deck B, hit Sync (or nudge the Tempo slider) until its BPM matches Deck A — with both decks' BPM known, Sync also snaps the downbeats into alignment, not just the tempo.",
   },
   {
     name: "Blend with the crossfader",
@@ -63,7 +63,7 @@ const TERMS: { term: string; def: string }[] = [
   },
   {
     term: "Beatmatching",
-    def: "Adjusting one deck's tempo so its beats line up with the other deck's, so the two tracks can play together without clashing.",
+    def: "Adjusting one deck's tempo so its beats line up with the other deck's, so the two tracks can play together without clashing. Sync does both halves at once — it matches the BPM and nudges the playhead so the downbeats land together.",
   },
   {
     term: "BPM",
@@ -71,7 +71,11 @@ const TERMS: { term: string; def: string }[] = [
   },
   {
     term: "Cue",
-    def: "A saved position in a track. Set a cue on the first downbeat so you can jump the deck straight back to it when it's time to bring that track in.",
+    def: "A saved position in a track, shown as a blue marker on the waveform. Hit Set Cue on the first downbeat; then Cue jumps straight back to it — the track keeps playing if it already was, so you can drop it in on beat. While the deck is paused, hold Cue to preview from that spot and release to snap back. Drag the blue marker to fine-tune it, or Clear it and try again. Sync and 2× Play both use the cue as the deck's anchor.",
+  },
+  {
+    term: "Loop",
+    def: "Repeats a stretch of the track — two green handles on the waveform — until you exit it, good for stretching an intro or breakdown while you line up the next move. Set one by ear with Loop In then Loop Out, or hit Loop for an instant 4-beat loop. Then drag either handle, snap to 2 / 4 / 8 / 16 beats, halve or double with ½ / 2×, or nudge the whole loop a sixteenth of a beat at a time with ◀ / ▶ to lock it to the grid.",
   },
   {
     term: "EQ (3-band)",
@@ -212,10 +216,18 @@ export default function LearnToDjPage() {
           </h2>
           <ul className="list-disc space-y-1.5 pl-5 text-sm text-black/80 dark:text-white/80">
             <li>Run two independent decks and blend between them live</li>
-            <li>Beatmatch with tap-tempo, detected BPM and a Sync button</li>
+            <li>
+              Beatmatch with tap-tempo, detected BPM and a Sync button that
+              lines up both the tempo and the downbeats
+            </li>
+            <li>
+              Drop a draggable cue point and a beat-accurate loop — caught by
+              ear or snapped to 2 / 4 / 8 / 16 beats — on either deck
+            </li>
             <li>Shape each track with a 3-band EQ and a sweepable filter</li>
             <li>Drop in echo, reverb and flanger as send effects</li>
             <li>Trigger baby, scribble and transformer scratches</li>
+            <li>Hit 2× Play to launch both decks from their cues at once</li>
             <li>Let Auto DJ crossfade tracks for you while you watch and learn</li>
             <li>
               Record up to three minutes and share a link that replays your mix

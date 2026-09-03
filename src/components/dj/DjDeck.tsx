@@ -10,6 +10,16 @@ import { Turntable } from "./Turntable";
 import { DJ_DRAG_MIME, type DeckFx, type DjSong } from "./types";
 import { Waveform } from "./Waveform";
 
+// Loop: default length (in beats, using the deck's BPM) for a freshly-set
+// loop, and the fallback (in raw seconds) when the deck's BPM is unknown.
+const DEFAULT_LOOP_BEATS = 4;
+const DEFAULT_LOOP_FALLBACK_SEC = 2;
+const MIN_LOOP_SEC = 0.05;
+// One-tap loop lengths offered once the deck's BPM is known.
+const LOOP_BEAT_PRESETS = [2, 4, 8, 16] as const;
+// Fine loop nudge: 1/16 of a beat when the BPM is known, else a flat 20 ms.
+const LOOP_NUDGE_FALLBACK_SEC = 0.02;
+
 const FILTER_NEUTRAL_FREQ = 22050;
 const FILTER_MIN_LOWPASS = 150;
 const FILTER_MAX_HIGHPASS = 4000;
@@ -37,21 +47,38 @@ export type DeckAction =
   | { k: "play" }
   | { k: "pause" }
   | { k: "seek"; pos: number }
-  | { k: "cueSet" }
+  | { k: "cueSet"; pos?: number }
   | { k: "cue" }
+  | { k: "cueClear" }
+  | { k: "loopSet"; start: number; end: number }
+  | { k: "loopExit" }
   | { k: "scratch"; pattern: "A" | "B" | "C" };
+
+export type Loop = { start: number; end: number }; // seconds
 
 export type DjDeckHandle = {
   play: () => void;
   pause: () => void;
   seek: (fraction: number) => void;
   jumpToCue: () => void;
-  setCueHere: () => void;
+  /** Sets the cue point. With no argument it uses the live playhead; with a
+   *  0..1 fraction it places the cue there (the replay path passes the
+   *  recorded position so a dragged cue lands where it was dragged). */
+  setCueHere: (fraction?: number) => void;
+  clearCue: () => void;
+  setLoop: (start: number, end: number) => void;
+  exitLoop: () => void;
   triggerScratch: (pattern: "A" | "B" | "C") => void;
   /** For the record-start snapshot: is this deck's <audio> currently playing? */
   isPlaying: () => boolean;
   /** Current playhead as a 0..1 fraction of the track (0 if unknown). */
   currentPos: () => number;
+  /** Seeks to an absolute position, in native track-seconds (unlike `seek`,
+   *  which takes a 0..1 fraction) — used for Sync's phase-alignment nudge. */
+  seekSeconds: (t: number) => void;
+  /** This deck's current playhead and cue point, both in native track-seconds
+   *  — the two numbers Sync needs to compute a beat-phase offset. */
+  getBeatAnchor: () => { positionSec: number; cueSec: number } | null;
   /** iOS: a gesture-initiated play()/pause() so this <audio> can be started
    *  programmatically later. Needed by the /mix replay, where one tap has to
    *  drive both decks over time and iOS otherwise blocks the deferred play(). */
@@ -132,10 +159,12 @@ export const DjDeck = forwardRef<
     gain: number;
     tempo: number;
     onTempoChange: (tempo: number) => void;
-    /** The other deck's tempo/BPM, for the "Sync" button. */
-    otherTempo: number;
+    /** The other deck's BPM, just for the "Sync" button's label/enabled state. */
     otherBpm: number | null;
     otherSong: DjSong | null;
+    /** Beatmatches AND phase-aligns this deck to the other one. The actual
+     *  computation lives in DjBoard, which can see both decks' state/refs. */
+    onSyncRequest?: () => void;
     onDropSong: (songId: string) => void;
     onBpmChange?: (bpm: number | null) => void;
     /** Fires when this deck's track finishes playing on its own — drives Auto DJ handoff. */
@@ -159,9 +188,9 @@ export const DjDeck = forwardRef<
     gain,
     tempo,
     onTempoChange,
-    otherTempo,
     otherBpm,
     otherSong,
+    onSyncRequest,
     onDropSong,
     onBpmChange,
     onEnded,
@@ -203,15 +232,28 @@ export const DjDeck = forwardRef<
   const [bpmError, setBpmError] = useState<string | null>(null);
   const [tapCount, setTapCount] = useState(0);
   const [cuePoint, setCuePoint] = useState(0);
+  const [hasCue, setHasCue] = useState(false);
+  const [loopRange, setLoopRange] = useState<Loop | null>(null);
+  // A manual loop half-set: "Loop In" captured a start, "Loop Out" not yet hit.
+  const [loopInPoint, setLoopInPoint] = useState<number | null>(null);
+  const [duration, setDuration] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const [scratching, setScratching] = useState(false);
+  // Set while the Cue button is held down from a paused deck (momentary preview).
+  const cuePreviewRef = useRef(false);
 
   useImperativeHandle(ref, () => ({
     play: () => void resumeAndPlay(),
     pause: () => audioRef.current?.pause(),
     seek: (fraction: number) => seekTo(fraction),
     jumpToCue: () => jumpToCue(),
-    setCueHere: () => setCueHere(),
+    setCueHere: (fraction?: number) => setCueAt(fraction),
+    clearCue: () => clearCue(),
+    setLoop: (start, end) => setLoopRange({ start, end }),
+    exitLoop: () => {
+      setLoopRange(null);
+      setLoopInPoint(null);
+    },
     triggerScratch: (pattern) => triggerScratch(pattern),
     isPlaying: () => !!audioRef.current && !audioRef.current.paused,
     currentPos: () => {
@@ -220,6 +262,15 @@ export const DjDeck = forwardRef<
         return 0;
       }
       return audio.currentTime / audio.duration;
+    },
+    seekSeconds: (t) => {
+      const audio = audioRef.current;
+      if (audio) audio.currentTime = Math.max(0, t);
+    },
+    getBeatAnchor: () => {
+      const audio = audioRef.current;
+      if (!audio) return null;
+      return { positionSec: audio.currentTime, cueSec: cuePoint };
     },
     primeAudio: () => {
       const audio = audioRef.current;
@@ -410,6 +461,25 @@ export const DjDeck = forwardRef<
     if (audio) audio.playbackRate = tempo;
   }, [tempo]);
 
+  // Loop watcher: while a loop is set, poll the playhead every animation
+  // frame and snap it back to the loop start once it reaches the end. A
+  // rAF poll (rather than the audio element's coarser `timeupdate`) keeps
+  // the seam tight enough to sound like a real loop, not a stutter.
+  useEffect(() => {
+    if (!loopRange) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+    let raf: number;
+    const check = () => {
+      if (audio.currentTime >= loopRange.end) {
+        audio.currentTime = loopRange.start;
+      }
+      raf = requestAnimationFrame(check);
+    };
+    raf = requestAnimationFrame(check);
+    return () => cancelAnimationFrame(raf);
+  }, [loopRange]);
+
   // Load a new song into this deck. FX + tempo are reset by DjBoard (they're
   // lifted props now); this only handles the deck-local + audio-element side.
   useEffect(() => {
@@ -424,6 +494,10 @@ export const DjDeck = forwardRef<
     setIsPlaying(false);
     setProgress(0);
     setCuePoint(0);
+    setHasCue(false);
+    setLoopRange(null);
+    setLoopInPoint(null);
+    setDuration(0);
     setBuffer(null);
     tapTimesRef.current = [];
     setTapCount(0);
@@ -533,17 +607,109 @@ export const DjDeck = forwardRef<
     };
   }
 
+  // Best available track length in seconds: the <audio> element's own clock
+  // (what the playhead is measured against) with the decoded buffer as a
+  // fallback before metadata has loaded. Keeping every marker on this one
+  // denominator is what makes the cue/loop lines sit under the red playhead.
+  function trackDuration(): number {
+    const audio = audioRef.current;
+    if (audio && Number.isFinite(audio.duration) && audio.duration > 0) {
+      return audio.duration;
+    }
+    return duration || buffer?.duration || 0;
+  }
+
+  function clampLoop({ start, end }: Loop): Loop {
+    const max = trackDuration();
+    const lo = Math.max(0, start);
+    const hiCeil = max > 0 ? max : lo + end - start + MIN_LOOP_SEC;
+    const hi = Math.min(hiCeil, Math.max(lo + MIN_LOOP_SEC, end));
+    return { start: lo, end: hi };
+  }
+
+  function commitLoop(next: Loop) {
+    const clamped = clampLoop(next);
+    setLoopRange(clamped);
+    onAction?.({ k: "loopSet", start: clamped.start, end: clamped.end });
+  }
+
+  // Cue jump. Unlike a CDJ's temporary cue (which stops the deck), this keeps
+  // the track running from the marker when it was already playing — the
+  // hot-cue behaviour, which is what you want mid-mix. Preview-while-paused is
+  // handled separately by the button's press-and-hold.
   function jumpToCue() {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.pause();
     audio.currentTime = cuePoint;
   }
 
-  function setCueHere() {
+  function setCueAt(fraction?: number) {
     const audio = audioRef.current;
     if (!audio) return;
+    const dur = trackDuration();
+    const t =
+      fraction != null && dur > 0
+        ? Math.min(dur, Math.max(0, fraction * dur))
+        : audio.currentTime;
+    setCuePoint(t);
+    setHasCue(true);
+  }
+
+  function clearCue() {
+    setCuePoint(0);
+    setHasCue(false);
+  }
+
+  // --- Cue button gestures (mouse/touch). Keyboard activation goes through
+  //     onKeyDown, which just does a plain jump.
+  function handleCuePointerDown() {
+    const audio = audioRef.current;
+    if (!audio || !song || disabled) return;
+    if (audio.paused) {
+      // Momentary preview: audition from the cue for as long as the button is
+      // held, then snap back and stay paused on release.
+      cuePreviewRef.current = true;
+      audio.currentTime = cuePoint;
+      void audio.play().catch(() => {});
+    } else {
+      audio.currentTime = cuePoint;
+      onAction?.({ k: "cue" });
+    }
+  }
+
+  function handleCuePointerUp() {
+    const audio = audioRef.current;
+    if (!cuePreviewRef.current || !audio) return;
+    cuePreviewRef.current = false;
+    audio.pause();
+    audio.currentTime = cuePoint;
+    onAction?.({ k: "cue" });
+  }
+
+  function handleCueKey(e: React.KeyboardEvent) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    if (!song || disabled) return;
+    jumpToCue();
+    onAction?.({ k: "cue" });
+  }
+
+  function handleSetCue() {
+    const audio = audioRef.current;
+    if (!audio || !song || disabled) return;
+    const dur = trackDuration();
     setCuePoint(audio.currentTime);
+    setHasCue(true);
+    onAction?.({
+      k: "cueSet",
+      pos: dur > 0 ? audio.currentTime / dur : undefined,
+    });
+  }
+
+  function handleClearCue() {
+    if (disabled) return;
+    clearCue();
+    onAction?.({ k: "cueClear" });
   }
 
   function seekTo(fraction: number) {
@@ -596,15 +762,98 @@ export const DjDeck = forwardRef<
     }
   }
 
-  function syncTempo() {
-    // Real beatmatching when both decks' BPM are known; otherwise just
-    // copy the other deck's raw speed as a starting point.
-    if (bpm && otherBpm) {
-      const target = (otherBpm * otherTempo) / bpm;
-      onTempoChange(Math.min(1.5, Math.max(0.5, target)));
-    } else {
-      onTempoChange(otherTempo);
+  const loopBeatLen = bpm && bpm > 0 ? 60 / bpm : null;
+
+  function loopBeatCount(l: Loop): number | null {
+    return loopBeatLen ? Math.round((l.end - l.start) / loopBeatLen) : null;
+  }
+
+  // The prominent "Loop" button: a one-tap 4-beat loop from the playhead (or a
+  // 2-second loop when the BPM is unknown), and the exit toggle once one's set.
+  function toggleLoop() {
+    if (loopRange) {
+      setLoopRange(null);
+      setLoopInPoint(null);
+      onAction?.({ k: "loopExit" });
+      return;
     }
+    const audio = audioRef.current;
+    if (!audio) return;
+    const len = loopBeatLen
+      ? DEFAULT_LOOP_BEATS * loopBeatLen
+      : DEFAULT_LOOP_FALLBACK_SEC;
+    commitLoop({ start: audio.currentTime, end: audio.currentTime + len });
+  }
+
+  function adjustLoopLength(factor: number) {
+    if (!loopRange) return;
+    const len = Math.max(MIN_LOOP_SEC, (loopRange.end - loopRange.start) * factor);
+    commitLoop({ start: loopRange.start, end: loopRange.start + len });
+  }
+
+  // Snap the loop to an exact beat count, anchored at the existing loop start
+  // (or the playhead if no loop is running yet).
+  function setLoopBeats(beats: number) {
+    if (!loopBeatLen) return;
+    const anchor = loopRange?.start ?? audioRef.current?.currentTime ?? 0;
+    commitLoop({ start: anchor, end: anchor + beats * loopBeatLen });
+  }
+
+  // Fine nudge: shift the whole loop earlier/later by a fraction of a beat to
+  // tighten it against the downbeat without changing its length.
+  function nudgeLoop(dir: -1 | 1) {
+    if (!loopRange) return;
+    const step = (loopBeatLen ? loopBeatLen / 16 : LOOP_NUDGE_FALLBACK_SEC) * dir;
+    const max = trackDuration();
+    let start = loopRange.start + step;
+    let end = loopRange.end + step;
+    if (start < 0) {
+      end -= start;
+      start = 0;
+    }
+    if (max > 0 && end > max) {
+      start -= end - max;
+      end = max;
+      start = Math.max(0, start);
+    }
+    setLoopRange({ start, end });
+    onAction?.({ k: "loopSet", start, end });
+  }
+
+  // Manual loop by ear: "Loop In" drops a start point while the track keeps
+  // playing, "Loop Out" closes it at the current playhead.
+  function setLoopIn() {
+    const audio = audioRef.current;
+    if (!audio || !song || disabled) return;
+    setLoopInPoint(audio.currentTime);
+  }
+
+  function setLoopOut() {
+    const audio = audioRef.current;
+    if (!audio || loopInPoint == null || disabled) return;
+    const start = Math.min(loopInPoint, audio.currentTime);
+    const end = Math.max(loopInPoint, audio.currentTime);
+    setLoopInPoint(null);
+    commitLoop({ start, end });
+  }
+
+  // Drag of a green handle on the waveform. `committed` is false during the
+  // drag (local state only) and true on release (recorded).
+  function handleLoopDrag(next: Loop, committed: boolean) {
+    const clamped = clampLoop(next);
+    setLoopRange(clamped);
+    if (committed) {
+      onAction?.({ k: "loopSet", start: clamped.start, end: clamped.end });
+    }
+  }
+
+  // Drag of the blue cue marker on the waveform.
+  function handleCueDrag(fraction: number, committed: boolean) {
+    const dur = trackDuration();
+    if (dur <= 0) return;
+    setCuePoint(Math.min(dur, Math.max(0, fraction * dur)));
+    setHasCue(true);
+    if (committed) onAction?.({ k: "cueSet", pos: fraction });
   }
 
   function handleSeek(fraction: number) {
@@ -642,6 +891,10 @@ export const DjDeck = forwardRef<
         ref={audioRef}
         crossOrigin="anonymous"
         preload="auto"
+        onLoadedMetadata={(e) => {
+          const d = e.currentTarget.duration;
+          setDuration(Number.isFinite(d) && d > 0 ? d : 0);
+        }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onTimeUpdate={(e) => {
@@ -758,41 +1011,194 @@ export const DjDeck = forwardRef<
           </button>
           <button
             type="button"
-            onClick={syncTempo}
+            onClick={() => onSyncRequest?.()}
             disabled={!song || !otherSong || disabled}
-            title={`Match this deck's tempo to Deck ${label === "A" ? "B" : "A"}${bpm && otherBpm ? " (beatmatched)" : ""}`}
+            title={`Match tempo AND beat-align to Deck ${label === "A" ? "B" : "A"}${bpm && otherBpm ? " (full beatmatch)" : " (tempo only — tap in a BPM for both decks to align downbeats)"}`}
             className={`${buttonClass} h-8`}
           >
             Sync
           </button>
           <button
             type="button"
-            onClick={() => {
-              jumpToCue();
-              onAction?.({ k: "cue" });
-            }}
+            onPointerDown={handleCuePointerDown}
+            onPointerUp={handleCuePointerUp}
+            onPointerLeave={handleCuePointerUp}
+            onPointerCancel={handleCuePointerUp}
+            onKeyDown={handleCueKey}
             disabled={!song || disabled}
-            title={`Jump to ${cuePoint.toFixed(1)}s`}
-            className={`${buttonClass} h-8`}
+            title={
+              hasCue
+                ? `Cue ${cuePoint.toFixed(2)}s — tap to jump (keeps playing), hold to preview while paused`
+                : "Jump to the start — hold to preview while paused"
+            }
+            className={`${buttonClass} h-8 touch-none select-none`}
           >
             Cue
           </button>
           <button
             type="button"
-            onClick={() => {
-              setCueHere();
-              onAction?.({ k: "cueSet" });
-            }}
+            onClick={handleSetCue}
             disabled={!song || disabled}
-            title="Store the current position as this deck's cue point"
+            title="Set the cue point here — drops a blue marker you can drag on the waveform"
             className={`${buttonClass} h-8`}
           >
-            Set
+            Set Cue
+          </button>
+          <button
+            type="button"
+            onClick={setLoopIn}
+            disabled={!song || disabled}
+            title="Mark the loop's start at the playhead (the track keeps playing)"
+            className={`${buttonClass} h-8 ${loopInPoint != null ? "border-amber-500 text-amber-600 dark:text-amber-400" : ""}`}
+          >
+            Loop In
+          </button>
+          <button
+            type="button"
+            onClick={setLoopOut}
+            disabled={!song || disabled || loopInPoint == null}
+            title="Close the loop at the playhead"
+            className={`${buttonClass} h-8`}
+          >
+            Loop Out
+          </button>
+          <button
+            type="button"
+            onClick={toggleLoop}
+            disabled={!song || disabled}
+            title={
+              loopRange
+                ? "Exit the loop and let the track keep playing"
+                : "One-tap 4-beat loop from here — then drag the green handles or use the beat / nudge buttons"
+            }
+            className={`${buttonClass} col-span-2 h-8 ${loopRange ? "border-emerald-500 text-emerald-600 dark:text-emerald-400" : ""}`}
+          >
+            {loopRange ? "Exit Loop" : "Loop"}
           </button>
         </div>
       </div>
 
-      <Waveform buffer={buffer} progress={song ? progress : null} onSeek={handleSeek} />
+      {hasCue && (
+        <div className="-mt-1 flex items-center gap-2 text-[10px] text-black/45 dark:text-white/45">
+          <span className="tabular-nums">Cue {cuePoint.toFixed(2)}s</span>
+          <span className="text-black/30 dark:text-white/30">
+            drag the blue marker to fine-tune
+          </span>
+          <button
+            type="button"
+            onClick={handleClearCue}
+            disabled={disabled}
+            title="Clear the cue point"
+            className={`${buttonClass} ml-auto h-6 px-2`}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {loopRange && (
+        <div className="-mt-1 flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-[10px] text-black/45 dark:text-white/45">
+            <span className="tabular-nums">
+              Loop{" "}
+              {loopBeatCount(loopRange) != null &&
+                `${loopBeatCount(loopRange)} beat${
+                  loopBeatCount(loopRange) === 1 ? "" : "s"
+                } · `}
+              {(loopRange.end - loopRange.start).toFixed(2)}s
+            </span>
+            <span className="text-black/30 dark:text-white/30">
+              drag the green handles
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              onClick={() => nudgeLoop(-1)}
+              disabled={disabled}
+              title="Nudge the whole loop earlier"
+              className={`${buttonClass} h-6 w-7`}
+            >
+              ◀
+            </button>
+            <button
+              type="button"
+              onClick={() => adjustLoopLength(0.5)}
+              disabled={disabled}
+              title="Halve the loop length"
+              className={`${buttonClass} h-6 w-7`}
+            >
+              ½
+            </button>
+            <button
+              type="button"
+              onClick={() => adjustLoopLength(2)}
+              disabled={disabled}
+              title="Double the loop length"
+              className={`${buttonClass} h-6 w-7`}
+            >
+              2×
+            </button>
+            <button
+              type="button"
+              onClick={() => nudgeLoop(1)}
+              disabled={disabled}
+              title="Nudge the whole loop later"
+              className={`${buttonClass} h-6 w-7`}
+            >
+              ▶
+            </button>
+            {loopBeatLen && (
+              <>
+                <span className="pl-1 text-[10px] text-black/30 dark:text-white/30">
+                  beats
+                </span>
+                {LOOP_BEAT_PRESETS.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => setLoopBeats(b)}
+                    disabled={disabled}
+                    title={`Set a ${b}-beat loop`}
+                    className={`${buttonClass} h-6 w-7 ${
+                      loopBeatCount(loopRange) === b
+                        ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                        : ""
+                    }`}
+                  >
+                    {b}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      <Waveform
+        buffer={buffer}
+        progress={song ? progress : null}
+        onSeek={handleSeek}
+        disabled={disabled}
+        cuePoint={
+          hasCue && trackDuration() > 0 ? cuePoint / trackDuration() : null
+        }
+        loop={
+          loopRange && trackDuration() > 0
+            ? {
+                start: loopRange.start / trackDuration(),
+                end: loopRange.end / trackDuration(),
+              }
+            : null
+        }
+        pendingLoopIn={
+          loopInPoint != null && trackDuration() > 0
+            ? loopInPoint / trackDuration()
+            : null
+        }
+        onCueChange={disabled ? undefined : handleCueDrag}
+        onLoopChange={disabled ? undefined : handleLoopDrag}
+      />
 
       <div className="grid grid-cols-3 gap-2">
         <MiniSlider

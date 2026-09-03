@@ -27,8 +27,11 @@ export type MixEvent =
   | { t: number; k: "play"; deck: DeckId }
   | { t: number; k: "pause"; deck: DeckId }
   | { t: number; k: "seek"; deck: DeckId; pos: number } // 0..1 of duration
-  | { t: number; k: "cueSet"; deck: DeckId }
+  | { t: number; k: "cueSet"; deck: DeckId; pos?: number } // pos 0..1; absent = playhead at replay
   | { t: number; k: "cue"; deck: DeckId }
+  | { t: number; k: "cueClear"; deck: DeckId }
+  | { t: number; k: "loopSet"; deck: DeckId; start: number; end: number } // seconds
+  | { t: number; k: "loopExit"; deck: DeckId }
   | { t: number; k: "scratch"; deck: DeckId; pattern: ScratchPattern }
   | { t: number; k: "tempo"; deck: DeckId; v: number }
   | { t: number; k: "fx"; deck: DeckId; key: FxKey; v: number } // bool encoded 0/1

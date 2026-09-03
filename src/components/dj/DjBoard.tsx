@@ -18,6 +18,10 @@ import type { SaveSongBpmResult } from "@/app/(main)/admin/dj/actions";
 const AUTO_DJ_TRANSITION_MS = 5000;
 const STORAGE_KEY = "dj-board-state-v1";
 
+function mod(a: number, m: number): number {
+  return ((a % m) + m) % m;
+}
+
 // Only the loaded tracks are restored across a refresh. The crossfader stays
 // at its neutral default so a deck never comes back silently parked.
 type PersistedState = {
@@ -181,6 +185,62 @@ export const DjBoard = forwardRef<
     emit({ k: "pause", deck });
   }
 
+  // Sync: beatmatch this deck's tempo to the other deck's, then — when both
+  // BPMs are known — nudge the playhead so the downbeats actually line up.
+  // Tempo alone gets two tracks to the same speed; DJs still need the beats
+  // to land together, which is the part a naive "copy the other tempo"
+  // button skips.
+  function syncDeck(deck: DeckId) {
+    const thisBpm = deck === "A" ? bpmA : bpmB;
+    const otherBpm = deck === "A" ? bpmB : bpmA;
+    const otherTempo = deck === "A" ? tempoB : tempoA;
+    if (!thisBpm) {
+      changeTempo(deck, otherTempo);
+      return;
+    }
+    const target = otherBpm
+      ? Math.min(1.5, Math.max(0.5, (otherBpm * otherTempo) / thisBpm))
+      : otherTempo;
+    changeTempo(deck, target);
+    if (!otherBpm) return;
+
+    const thisHandle = deckRefFor(deck).current;
+    const otherHandle = deckRefFor(deck === "A" ? "B" : "A").current;
+    const thisAnchor = thisHandle?.getBeatAnchor();
+    const otherAnchor = otherHandle?.getBeatAnchor();
+    if (!thisHandle || !thisAnchor || !otherAnchor) return;
+
+    // Native beat length (in each track's own currentTime units — this
+    // doesn't change with playbackRate, since currentTime always advances
+    // in the source material's own timeline).
+    const thisBeat = 60 / thisBpm;
+    const otherBeat = 60 / otherBpm;
+    const otherPhase = mod(otherAnchor.positionSec - otherAnchor.cueSec, otherBeat);
+    // Rescale the other deck's beat-phase into this deck's beat grid, at the
+    // rate this deck is about to play at relative to the other's.
+    const rateRatio = target / otherTempo;
+    const targetPhase = mod(otherPhase * rateRatio, thisBeat);
+    const currentPhase = mod(thisAnchor.positionSec - thisAnchor.cueSec, thisBeat);
+    let delta = targetPhase - currentPhase;
+    delta = mod(delta + thisBeat / 2, thisBeat) - thisBeat / 2; // shortest nudge
+    const newPos = Math.max(0, thisAnchor.positionSec + delta);
+
+    thisHandle.seekSeconds(newPos);
+    emit({ k: "seek", deck, pos: thisHandle.currentPos() });
+  }
+
+  // The single "2x Play" button: sends both decks back to their cue points
+  // (start of track if none was set) and starts them together.
+  function playBothFromCues() {
+    (["A", "B"] as DeckId[]).forEach((deck) => {
+      const song = deck === "A" ? deckASong : deckBSong;
+      if (!song) return;
+      deckRefFor(deck).current?.jumpToCue();
+      emit({ k: "cue", deck });
+      deckPlay(deck);
+    });
+  }
+
   // DjDeck already performed the audio side of a momentary action; the board
   // only needs to log it (with the deck attached).
   function handleDeckAction(deck: DeckId, action: DeckAction) {
@@ -188,11 +248,18 @@ export const DjBoard = forwardRef<
       case "play":
       case "pause":
       case "cue":
-      case "cueSet":
+      case "cueClear":
+      case "loopExit":
         emit({ k: action.k, deck });
+        break;
+      case "cueSet":
+        emit({ k: "cueSet", deck, pos: action.pos });
         break;
       case "seek":
         emit({ k: "seek", deck, pos: action.pos });
+        break;
+      case "loopSet":
+        emit({ k: "loopSet", deck, start: action.start, end: action.end });
         break;
       case "scratch":
         emit({ k: "scratch", deck, pattern: action.pattern });
@@ -258,7 +325,16 @@ export const DjBoard = forwardRef<
             deckRefFor(event.deck).current?.jumpToCue();
             break;
           case "cueSet":
-            deckRefFor(event.deck).current?.setCueHere();
+            deckRefFor(event.deck).current?.setCueHere(event.pos);
+            break;
+          case "cueClear":
+            deckRefFor(event.deck).current?.clearCue();
+            break;
+          case "loopSet":
+            deckRefFor(event.deck).current?.setLoop(event.start, event.end);
+            break;
+          case "loopExit":
+            deckRefFor(event.deck).current?.exitLoop();
             break;
           case "scratch":
             deckRefFor(event.deck).current?.triggerScratch(event.pattern);
@@ -421,9 +497,9 @@ export const DjBoard = forwardRef<
             gain={gainA}
             tempo={tempoA}
             onTempoChange={(v) => changeTempo("A", v)}
-            otherTempo={tempoB}
             otherBpm={bpmB}
             otherSong={deckBSong}
+            onSyncRequest={() => syncDeck("A")}
             onDropSong={(id) => loadSong("A", id)}
             onBpmChange={setBpmA}
             onEnded={() => handleDeckEnded("A")}
@@ -442,9 +518,9 @@ export const DjBoard = forwardRef<
             gain={gainB}
             tempo={tempoB}
             onTempoChange={(v) => changeTempo("B", v)}
-            otherTempo={tempoA}
             otherBpm={bpmA}
             otherSong={deckASong}
+            onSyncRequest={() => syncDeck("B")}
             onDropSong={(id) => loadSong("B", id)}
             onBpmChange={setBpmB}
             onEnded={() => handleDeckEnded("B")}
@@ -461,19 +537,30 @@ export const DjBoard = forwardRef<
             <span className="text-[10px] font-medium text-black/50 dark:text-white/50">
               Crossfader
             </span>
-            <button
-              type="button"
-              onClick={() => toggleAutoDj(!autoDj)}
-              disabled={isPlayback}
-              title="Automatically crossfade into a new track whenever the current one ends"
-              className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold disabled:opacity-40 ${
-                autoDj
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-              }`}
-            >
-              Auto DJ {autoDj ? "On" : "Off"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={playBothFromCues}
+                disabled={isPlayback || !deckASong || !deckBSong}
+                title="Start both decks together from their cue points"
+                className="rounded-full border border-black/15 px-2.5 py-1 text-[10px] font-semibold hover:bg-black/5 disabled:opacity-40 dark:border-white/20 dark:hover:bg-white/10"
+              >
+                ▶▶ 2× Play
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleAutoDj(!autoDj)}
+                disabled={isPlayback}
+                title="Automatically crossfade into a new track whenever the current one ends"
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold disabled:opacity-40 ${
+                  autoDj
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                }`}
+              >
+                Auto DJ {autoDj ? "On" : "Off"}
+              </button>
+            </div>
           </div>
           <div className="flex w-full max-w-md items-center gap-3">
             <span className="text-xs font-bold">A</span>
